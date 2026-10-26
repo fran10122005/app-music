@@ -18,6 +18,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Pause
@@ -61,6 +63,7 @@ import coil.compose.AsyncImage
 import com.francisco.franmusic.domain.model.Song
 import com.francisco.franmusic.playback.PlaybackUiState
 import com.francisco.franmusic.ui.theme.AccentGreen
+import com.francisco.franmusic.ui.theme.AccentPink
 import com.francisco.franmusic.ui.theme.DarkBackground
 import com.francisco.franmusic.ui.theme.DarkSurfaceElevated
 import com.francisco.franmusic.ui.theme.DarkSurfaceVariant
@@ -82,6 +85,7 @@ fun NowPlayingSheet(
     onSeek: (Float) -> Unit,
     onToggleShuffle: () -> Unit,
     onToggleRepeat: () -> Unit,
+    onToggleFavorite: (Song) -> Unit,
     onDownloadClick: (Song) -> Unit,
     onAddToPlaylistClick: (Song) -> Unit
 ) {
@@ -176,54 +180,83 @@ fun NowPlayingSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
-            // Song Info & Badges
-            Column(
+            // Song Info with Favorite Button
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = song.title,
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = song.artist,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = TextSecondary,
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = song.title,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = song.artist,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = TextSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
 
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Badges
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                IconButton(
+                    onClick = { onToggleFavorite(song) },
+                    modifier = Modifier.size(44.dp)
                 ) {
+                    Icon(
+                        imageVector = if (song.isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                        contentDescription = "Favorito",
+                        tint = if (song.isFavorite) AccentPink else TextMuted,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Badges
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (song.isDownloaded) AccentGreen.copy(alpha = 0.15f) else DarkSurfaceVariant
+                ) {
+                    Text(
+                        text = if (song.isDownloaded) "✓ Audio Local" else "En Línea",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (song.isDownloaded) AccentGreen else SecondaryCyan,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+
+                if (song.folderName.isNotBlank()) {
+                    Spacer(modifier = Modifier.width(8.dp))
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = if (song.isDownloaded) AccentGreen.copy(alpha = 0.15f) else DarkSurfaceVariant
+                        color = DarkSurfaceVariant
                     ) {
                         Text(
-                            text = if (song.isDownloaded) "✓ Disponible Offline" else if (song.isOnline) "Legal Streaming (CC)" else "Audio Local",
+                            text = "📁 ${song.folderName}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = if (song.isDownloaded) AccentGreen else SecondaryCyan,
+                            color = TextSecondary,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             // Seekbar
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -359,9 +392,9 @@ fun NowPlayingSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Bottom Actions: Download button
+            // Bottom Actions: Download / Local status info
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -381,13 +414,13 @@ fun NowPlayingSheet(
                     Spacer(modifier = Modifier.width(10.dp))
                     Column {
                         Text(
-                            text = if (song.isDownloaded) "Descargado en tu dispositivo" else "Disponible para descarga offline",
+                            text = if (song.isDownloaded) "Audio disponible en tu dispositivo" else "Disponible para descarga offline",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = FontWeight.Medium,
                             color = TextPrimary
                         )
                         Text(
-                            text = if (song.isDownloaded) "Puedes escucharla sin internet" else "Descargar con WorkManager",
+                            text = if (song.isDownloaded) "Reproducción local instantánea" else "Guardar en almacenamiento de FranMusic",
                             style = MaterialTheme.typography.labelSmall,
                             color = TextMuted
                         )

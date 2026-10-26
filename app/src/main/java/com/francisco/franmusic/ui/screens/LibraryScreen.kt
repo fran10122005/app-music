@@ -26,19 +26,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.FolderSpecial
-import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PlaylistPlay
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
@@ -58,6 +60,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.francisco.franmusic.domain.model.Album
 import com.francisco.franmusic.domain.model.Artist
+import com.francisco.franmusic.domain.model.Folder
 import com.francisco.franmusic.domain.model.Playlist
 import com.francisco.franmusic.domain.model.Song
 import com.francisco.franmusic.playback.PlaybackUiState
@@ -76,12 +79,15 @@ import com.francisco.franmusic.ui.viewmodel.LibraryTab
 fun LibraryScreen(
     currentTab: LibraryTab,
     songs: List<Song>,
+    folders: List<Folder>,
     albums: List<Album>,
     artists: List<Artist>,
     playlists: List<Playlist>,
     playbackState: PlaybackUiState,
     onTabSelected: (LibraryTab) -> Unit,
     onSongClick: (Song) -> Unit,
+    onFolderClick: (Folder) -> Unit,
+    onPlayFolderClick: (Folder) -> Unit,
     onAlbumClick: (Album) -> Unit,
     onArtistClick: (Artist) -> Unit,
     onPlaylistClick: (Playlist) -> Unit,
@@ -129,21 +135,25 @@ fun LibraryScreen(
         // Tabs
         val tabs = listOf(
             LibraryTab.SONGS to "Canciones",
+            LibraryTab.FOLDERS to "Carpetas",
             LibraryTab.ALBUMS to "Álbumes",
             LibraryTab.ARTISTS to "Artistas",
             LibraryTab.PLAYLISTS to "Playlists"
         )
         val selectedIndex = tabs.indexOfFirst { it.first == currentTab }.coerceAtLeast(0)
 
-        TabRow(
+        ScrollableTabRow(
             selectedTabIndex = selectedIndex,
             containerColor = DarkBackground,
             contentColor = PrimaryVioletLight,
+            edgePadding = 16.dp,
             indicator = { tabPositions ->
-                TabRowDefaults.SecondaryIndicator(
-                    Modifier.tabIndicatorOffset(tabPositions[selectedIndex]),
-                    color = PrimaryViolet
-                )
+                if (selectedIndex < tabPositions.size) {
+                    TabRowDefaults.SecondaryIndicator(
+                        Modifier.tabIndicatorOffset(tabPositions[selectedIndex]),
+                        color = PrimaryViolet
+                    )
+                }
             },
             divider = {}
         ) {
@@ -191,6 +201,59 @@ fun LibraryScreen(
                             onAddToPlaylistClick = { onAddToPlaylistClick(song) },
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
                         )
+                    }
+                }
+            }
+
+            LibraryTab.FOLDERS -> {
+                if (folders.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(bottom = 120.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Rounded.Folder,
+                                contentDescription = null,
+                                tint = TextMuted,
+                                modifier = Modifier.size(64.dp)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "No se encontraron carpetas con música",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "Asegúrate de conceder permisos de almacenamiento",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextMuted
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = 120.dp)
+                    ) {
+                        item {
+                            Text(
+                                text = "${folders.size} carpetas de audio encontradas",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextMuted,
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
+                            )
+                        }
+
+                        items(folders) { folder ->
+                            FolderRowItem(
+                                folder = folder,
+                                onClick = { onFolderClick(folder) },
+                                onPlayClick = { onPlayFolderClick(folder) }
+                            )
+                        }
                     }
                 }
             }
@@ -303,6 +366,66 @@ fun LibraryScreen(
                 }
             }
         )
+    }
+}
+
+@Composable
+private fun FolderRowItem(
+    folder: Folder,
+    onClick: () -> Unit,
+    onPlayClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(DarkSurfaceElevated),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Folder,
+                contentDescription = null,
+                tint = PrimaryViolet,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.width(16.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = folder.name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "${folder.songCount} canciones",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary
+            )
+        }
+
+        IconButton(
+            onClick = onPlayClick,
+            modifier = Modifier.size(40.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.PlayArrow,
+                contentDescription = "Reproducir carpeta",
+                tint = PrimaryVioletLight,
+                modifier = Modifier.size(26.dp)
+            )
+        }
     }
 }
 

@@ -20,6 +20,10 @@ data class SongEntity(
     val localFilePath: String?,
     val mimeType: String?,
     val sourceId: String,
+    val folderPath: String = "",
+    val folderName: String = "Música",
+    val isFavorite: Boolean = false,
+    val playCount: Int = 0,
     val addedAt: Long = System.currentTimeMillis()
 ) {
     fun toDomain(): Song = Song(
@@ -35,7 +39,11 @@ data class SongEntity(
         isDownloaded = isDownloaded,
         localFilePath = localFilePath,
         mimeType = mimeType,
-        sourceId = sourceId
+        sourceId = sourceId,
+        folderPath = folderPath,
+        folderName = folderName,
+        isFavorite = isFavorite,
+        playCount = playCount
     )
 
     companion object {
@@ -52,7 +60,11 @@ data class SongEntity(
             isDownloaded = song.isDownloaded,
             localFilePath = song.localFilePath,
             mimeType = song.mimeType,
-            sourceId = song.sourceId
+            sourceId = song.sourceId,
+            folderPath = song.folderPath,
+            folderName = song.folderName,
+            isFavorite = song.isFavorite,
+            playCount = song.playCount
         )
     }
 }

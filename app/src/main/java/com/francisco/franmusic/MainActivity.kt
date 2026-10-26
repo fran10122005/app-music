@@ -9,7 +9,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +16,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -49,30 +47,27 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.francisco.franmusic.domain.model.Playlist
 import com.francisco.franmusic.domain.model.Song
 import com.francisco.franmusic.ui.components.MiniPlayer
 import com.francisco.franmusic.ui.components.NowPlayingSheet
 import com.francisco.franmusic.ui.screens.AlbumDetailSheet
 import com.francisco.franmusic.ui.screens.ArtistDetailSheet
 import com.francisco.franmusic.ui.screens.DownloadsScreen
+import com.francisco.franmusic.ui.screens.FolderDetailSheet
 import com.francisco.franmusic.ui.screens.HomeScreen
 import com.francisco.franmusic.ui.screens.LibraryScreen
 import com.francisco.franmusic.ui.screens.PlaylistDetailSheet
 import com.francisco.franmusic.ui.screens.SearchScreen
-import com.francisco.franmusic.ui.theme.FranMusicTheme
 import com.francisco.franmusic.ui.theme.DarkBackground
 import com.francisco.franmusic.ui.theme.DarkSurface
 import com.francisco.franmusic.ui.theme.DarkSurfaceElevated
-import com.francisco.franmusic.ui.theme.GlassBorder
+import com.francisco.franmusic.ui.theme.FranMusicTheme
 import com.francisco.franmusic.ui.theme.PrimaryViolet
 import com.francisco.franmusic.ui.theme.PrimaryVioletLight
 import com.francisco.franmusic.ui.theme.TextMuted
 import com.francisco.franmusic.ui.theme.TextPrimary
-import com.francisco.franmusic.ui.theme.TextSecondary
 import com.francisco.franmusic.ui.viewmodel.AppScreen
 import com.francisco.franmusic.ui.viewmodel.MainViewModel
 
@@ -101,6 +96,7 @@ fun MainAppScreen(viewModel: MainViewModel) {
     val songs by viewModel.songs.collectAsState()
     val albums by viewModel.albums.collectAsState()
     val artists by viewModel.artists.collectAsState()
+    val folders by viewModel.folders.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
     val downloads by viewModel.downloads.collectAsState()
 
@@ -111,6 +107,7 @@ fun MainAppScreen(viewModel: MainViewModel) {
     val isNowPlayingExpanded by viewModel.isNowPlayingExpanded.collectAsState()
     val selectedAlbum by viewModel.selectedAlbum.collectAsState()
     val selectedArtist by viewModel.selectedArtist.collectAsState()
+    val selectedFolder by viewModel.selectedFolder.collectAsState()
     val selectedPlaylist by viewModel.selectedPlaylist.collectAsState()
 
     var songToAddToPlaylist by remember { mutableStateOf<Song?>(null) }
@@ -211,12 +208,15 @@ fun MainAppScreen(viewModel: MainViewModel) {
                     LibraryScreen(
                         currentTab = libraryTab,
                         songs = songs,
+                        folders = folders,
                         albums = albums,
                         artists = artists,
                         playlists = playlists,
                         playbackState = playbackState,
                         onTabSelected = { viewModel.setLibraryTab(it) },
                         onSongClick = { viewModel.playSong(it) },
+                        onFolderClick = { viewModel.selectFolder(it) },
+                        onPlayFolderClick = { viewModel.playFolder(it) },
                         onAlbumClick = { viewModel.selectAlbum(it) },
                         onArtistClick = { viewModel.selectArtist(it) },
                         onPlaylistClick = { viewModel.selectPlaylist(it) },
@@ -271,6 +271,23 @@ fun MainAppScreen(viewModel: MainViewModel) {
             onSeek = { viewModel.seekToProgress(it) },
             onToggleShuffle = { viewModel.toggleShuffle() },
             onToggleRepeat = { viewModel.toggleRepeat() },
+            onToggleFavorite = { viewModel.toggleFavorite(it) },
+            onDownloadClick = { viewModel.downloadSong(it) },
+            onAddToPlaylistClick = { songToAddToPlaylist = it }
+        )
+    }
+
+    // Folder Detail Sheet (Plus #1)
+    selectedFolder?.let { folder ->
+        val folderSongsState by viewModel.repository.getSongsByFolder(folder.path)
+            .collectAsState(initial = emptyList())
+        FolderDetailSheet(
+            folder = folder,
+            songs = folderSongsState,
+            playbackState = playbackState,
+            onDismiss = { viewModel.selectFolder(null) },
+            onPlayAllClick = { viewModel.playFolder(folder) },
+            onSongClick = { viewModel.playSong(it, folderSongsState) },
             onDownloadClick = { viewModel.downloadSong(it) },
             onAddToPlaylistClick = { songToAddToPlaylist = it }
         )
@@ -306,7 +323,6 @@ fun MainAppScreen(viewModel: MainViewModel) {
 
     // Playlist Detail Sheet
     selectedPlaylist?.let { playlist ->
-        // Retrieve songs for playlist from repository stream
         val playlistSongsState by viewModel.repository.getSongsForPlaylist(playlist.id)
             .collectAsState(initial = emptyList())
 

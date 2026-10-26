@@ -9,6 +9,7 @@ import com.francisco.franmusic.data.source.LocalMediaSource
 import com.francisco.franmusic.domain.model.Album
 import com.francisco.franmusic.domain.model.Artist
 import com.francisco.franmusic.domain.model.DownloadInfo
+import com.francisco.franmusic.domain.model.Folder
 import com.francisco.franmusic.domain.model.Playlist
 import com.francisco.franmusic.domain.model.Song
 import com.francisco.franmusic.domain.repository.MusicRepository
@@ -88,6 +89,28 @@ class MusicRepositoryImpl(
             .sortedBy { it.name.lowercase() }
     }
 
+    override val folders: Flow<List<Folder>> = songs.map { songList ->
+        songList.filter { it.folderPath.isNotBlank() }
+            .groupBy { it.folderPath }
+            .map { (path, folderSongs) ->
+                val name = folderSongs.first().folderName
+                Folder(
+                    path = path,
+                    name = name,
+                    songCount = folderSongs.size
+                )
+            }
+            .sortedBy { it.name.lowercase() }
+    }
+
+    override val favoriteSongs: Flow<List<Song>> = songDao.getFavoriteSongs().map { list ->
+        list.map { it.toDomain() }
+    }
+
+    override val mostPlayedSongs: Flow<List<Song>> = songDao.getMostPlayedSongs().map { list ->
+        list.map { it.toDomain() }
+    }
+
     override val playlists: Flow<List<Playlist>> = playlistDao.getAllPlaylists().map { list ->
         list.map { it.toDomain() }
     }
@@ -115,7 +138,6 @@ class MusicRepositoryImpl(
     override suspend fun refreshOnlineSongs() = withContext(Dispatchers.IO) {
         try {
             val onlineSongs = onlineSource.getSongs()
-            // Conserve download status if already in database
             val existing = mutableMapOf<String, SongEntity>()
             onlineSongs.forEach { song ->
                 val fromDb = songDao.getSongById(song.id)
@@ -129,7 +151,9 @@ class MusicRepositoryImpl(
                 val updatedSong = if (dbMatch != null) {
                     onlineSong.copy(
                         isDownloaded = dbMatch.isDownloaded,
-                        localFilePath = dbMatch.localFilePath
+                        localFilePath = dbMatch.localFilePath,
+                        isFavorite = dbMatch.isFavorite,
+                        playCount = dbMatch.playCount
                     )
                 } else {
                     onlineSong
@@ -166,8 +190,22 @@ class MusicRepositoryImpl(
         }
     }
 
+    override fun getSongsByFolder(folderPath: String): Flow<List<Song>> {
+        return songDao.getSongsByFolder(folderPath).map { list ->
+            list.map { it.toDomain() }
+        }
+    }
+
     override suspend fun getSongById(songId: String): Song? = withContext(Dispatchers.IO) {
         songDao.getSongById(songId)?.toDomain()
+    }
+
+    override suspend fun toggleFavorite(songId: String, isFavorite: Boolean) = withContext(Dispatchers.IO) {
+        songDao.updateFavorite(songId, isFavorite)
+    }
+
+    override suspend fun recordSongPlayed(songId: String) = withContext(Dispatchers.IO) {
+        songDao.incrementPlayCount(songId)
     }
 
     override suspend fun createPlaylist(name: String): Long = withContext(Dispatchers.IO) {

@@ -7,9 +7,11 @@ import android.os.Build
 import android.provider.MediaStore
 import com.francisco.franmusic.domain.model.Album
 import com.francisco.franmusic.domain.model.Artist
+import com.francisco.franmusic.domain.model.Folder
 import com.francisco.franmusic.domain.model.Song
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 
 class LocalMediaSource(
     private val context: Context
@@ -34,7 +36,8 @@ class LocalMediaSource(
             MediaStore.Audio.Media.DURATION,
             MediaStore.Audio.Media.TRACK,
             MediaStore.Audio.Media.ALBUM_ID,
-            MediaStore.Audio.Media.MIME_TYPE
+            MediaStore.Audio.Media.MIME_TYPE,
+            MediaStore.Audio.Media.DATA
         )
 
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} > 10000"
@@ -56,6 +59,7 @@ class LocalMediaSource(
                 val trackColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
                 val albumIdColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
                 val mimeTypeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
+                val dataColumn = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
 
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idColumn)
@@ -66,6 +70,7 @@ class LocalMediaSource(
                     val track = cursor.getInt(trackColumn)
                     val albumId = cursor.getLong(albumIdColumn)
                     val mimeType = cursor.getString(mimeTypeColumn) ?: "audio/mpeg"
+                    val dataPath = if (dataColumn >= 0) cursor.getString(dataColumn) else null
 
                     val contentUri = ContentUris.withAppendedId(
                         MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
@@ -76,6 +81,15 @@ class LocalMediaSource(
                         Uri.parse("content://media/external/audio/albumart"),
                         albumId
                     ).toString()
+
+                    val (folderPath, folderName) = if (!dataPath.isNullOrEmpty()) {
+                        val file = File(dataPath)
+                        val parent = file.parent ?: ""
+                        val name = file.parentFile?.name ?: "Música"
+                        Pair(parent, name)
+                    } else {
+                        Pair("", "Música")
+                    }
 
                     songList.add(
                         Song(
@@ -89,9 +103,11 @@ class LocalMediaSource(
                             mediaUri = contentUri.toString(),
                             isOnline = false,
                             isDownloaded = true,
-                            localFilePath = contentUri.toString(),
+                            localFilePath = dataPath ?: contentUri.toString(),
                             mimeType = mimeType,
-                            sourceId = sourceId
+                            sourceId = sourceId,
+                            folderPath = folderPath,
+                            folderName = folderName
                         )
                     )
                 }
@@ -135,12 +151,28 @@ class LocalMediaSource(
             .sortedBy { it.name.lowercase() }
     }
 
+    suspend fun getFolders(): List<Folder> = withContext(Dispatchers.IO) {
+        val songs = getSongs()
+        songs.filter { it.folderPath.isNotBlank() }
+            .groupBy { it.folderPath }
+            .map { (path, folderSongs) ->
+                val name = folderSongs.first().folderName
+                Folder(
+                    path = path,
+                    name = name,
+                    songCount = folderSongs.size
+                )
+            }
+            .sortedBy { it.name.lowercase() }
+    }
+
     override suspend fun search(query: String): List<Song> = withContext(Dispatchers.IO) {
         val lower = query.lowercase().trim()
         getSongs().filter {
             it.title.lowercase().contains(lower) ||
             it.artist.lowercase().contains(lower) ||
-            it.album.lowercase().contains(lower)
+            it.album.lowercase().contains(lower) ||
+            it.folderName.lowercase().contains(lower)
         }
     }
 

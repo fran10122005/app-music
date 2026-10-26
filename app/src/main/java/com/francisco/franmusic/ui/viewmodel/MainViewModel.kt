@@ -10,6 +10,7 @@ import com.francisco.franmusic.data.source.LocalMediaSource
 import com.francisco.franmusic.domain.model.Album
 import com.francisco.franmusic.domain.model.Artist
 import com.francisco.franmusic.domain.model.DownloadInfo
+import com.francisco.franmusic.domain.model.Folder
 import com.francisco.franmusic.domain.model.Playlist
 import com.francisco.franmusic.domain.model.Song
 import com.francisco.franmusic.domain.repository.MusicRepository
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -35,6 +37,7 @@ enum class AppScreen {
 
 enum class LibraryTab {
     SONGS,
+    FOLDERS,
     ALBUMS,
     ARTISTS,
     PLAYLISTS
@@ -80,10 +83,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val artists: StateFlow<List<Artist>> = repository.artists
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val folders: StateFlow<List<Folder>> = repository.folders
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val playlists: StateFlow<List<Playlist>> = repository.playlists
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val downloads: StateFlow<List<DownloadInfo>> = repository.downloads
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val favoriteSongs: StateFlow<List<Song>> = repository.favoriteSongs
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val mostPlayedSongs: StateFlow<List<Song>> = repository.mostPlayedSongs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Search state
@@ -105,6 +117,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _selectedArtist = MutableStateFlow<Artist?>(null)
     val selectedArtist: StateFlow<Artist?> = _selectedArtist.asStateFlow()
+
+    private val _selectedFolder = MutableStateFlow<Folder?>(null)
+    val selectedFolder: StateFlow<Folder?> = _selectedFolder.asStateFlow()
 
     private val _selectedPlaylist = MutableStateFlow<Playlist?>(null)
     val selectedPlaylist: StateFlow<Playlist?> = _selectedPlaylist.asStateFlow()
@@ -134,6 +149,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Playback actions
     fun playSong(song: Song, queue: List<Song> = songs.value) {
         playerManager.playSong(song, queue)
+        viewModelScope.launch {
+            repository.recordSongPlayed(song.id)
+        }
+    }
+
+    fun playFolder(folder: Folder) {
+        viewModelScope.launch {
+            val folderSongs = repository.getSongsByFolder(folder.path).first()
+            if (folderSongs.isNotEmpty()) {
+                playSong(folderSongs.first(), folderSongs)
+            }
+        }
+    }
+
+    fun toggleFavorite(song: Song) {
+        viewModelScope.launch {
+            repository.toggleFavorite(song.id, !song.isFavorite)
+        }
     }
 
     fun togglePlayPause() {
@@ -210,6 +243,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectArtist(artist: Artist?) {
         _selectedArtist.value = artist
+    }
+
+    fun selectFolder(folder: Folder?) {
+        _selectedFolder.value = folder
     }
 
     fun selectPlaylist(playlist: Playlist?) {

@@ -13,7 +13,11 @@ data class Song(
     val isDownloaded: Boolean = false,
     val localFilePath: String? = null,
     val mimeType: String? = "audio/mpeg",
-    val sourceId: String = "local"
+    val sourceId: String = "local",
+    val folderPath: String = "",
+    val folderName: String = "Música",
+    val isFavorite: Boolean = false,
+    val playCount: Int = 0
 ) {
     val formattedDuration: String
         get() {
