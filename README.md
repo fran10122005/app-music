@@ -1,109 +1,164 @@
-# AuraMusic 🎵
+# FranMusic 🎵
 
-Aplicación de música moderna para Android desarrollada en **Kotlin**, **Jetpack Compose** y **Material 3**, con arquitectura limpia, soporte de biblioteca local (MediaStore), streaming online con catálogo legal de dominio público / Creative Commons, descargas explícitas con **WorkManager**, caché LRU con **Media3 ExoPlayer**, persistencia reactiva en **Room** y reproducción en segundo plano mediante **Media3 Session**.
-
----
-
-## 🌟 Características Principales
-
-1. **Biblioteca Local y Metadatos (MediaStore)**:
-   - Lectura de música local del almacenamiento con metadatos completos: título, artista, álbum, duración y carátula.
-   - Manejo de permisos según la versión de Android: `READ_MEDIA_AUDIO` y `POST_NOTIFICATIONS` en Android 13+ (API 33+) y `READ_EXTERNAL_STORAGE` en versiones anteriores.
-   - Navegación agrupada por **Canciones**, **Álbumes**, **Artistas** y **Playlists**.
-
-2. **Fuentes Online Legales**:
-   - Interfaz extensible `MusicSource` con operaciones desacopladas: `getSongs()`, `getAlbums()`, `getArtists()`, `search()`, `getStreamUrl()`.
-   - `LocalMediaSource`: lectura eficiente mediante MediaStore.
-   - `LegalDemoMediaSource`: catálogo 100% legal de obras maestras clásicas de dominio público y licencias Creative Commons (Chopin, Beethoven, Vivaldi, Bach, Mozart, Satie) con metadatos reales y streaming directo.
-   - Arquitectura lista para conectar servidores autoalojados (Subsonic, Navidrome, Jellyfin) o proveedores con API Key mediante DataStore o BuildConfig sin elusión de DRM ni scraping ilegal.
-
-3. **Reproducción Moderna en Segundo Plano (Media3)**:
-   - `PlaybackService` basado en `MediaSessionService` de AndroidX Media3.
-   - Notificación multimedia del sistema con controles nativos (Play/Pause, Anterior/Siguiente, barra de progreso interactiva) y compatibilidad con Bluetooth/auriculares y desconexión (Becoming Noisy).
-   - Cola de reproducción inteligente, soporte para aleatorio (*shuffle*) y repetición (*repeat* off, all, one).
-   - Mini reproductor persistente y pantalla modal expandible "Reproduciendo ahora" con carátula con relieve, slider de búsqueda y controles completos.
-
-4. **Modo Offline, Caché y Descargas**:
-   - **Caché de streaming**: `Media3Cache` con política LRU (`LeastRecentlyUsedCacheEvictor` de 100MB) para evitar descargas repetidas de canciones escuchadas.
-   - **Descargas explícitas con WorkManager**: `DownloadWorker` descarga audio directamente al almacenamiento seguro de la app (`context.filesDir/downloads`), con notificación de progreso en tiempo real.
-   - **Registro en Room**: persistencia del estado (`QUEUED`, `DOWNLOADING`, `COMPLETED`, `FAILED`), progreso porcentual y bytes transferidos.
-   - **Modo Offline**: interruptor en la pantalla de inicio que filtra automáticamente la biblioteca mostrando exclusivamente pistas locales y descargadas.
-
-5. **Diseño y Experiencia de Usuario (Material 3)**:
-   - Tema oscuro elegante (Dark Velvet Obsidian) con acentos violeta eléctrico y cian neón.
-   - Barra de navegación inferior: **Inicio**, **Biblioteca**, **Buscar**, **Descargas**.
-   - Búsqueda en tiempo real con chips de filtro: Todo, Dispositivo, En Línea (CC), Descargadas.
-   - Creación y gestión de listas de reproducción personalizadas.
+> **Reproductor de música local de alta fidelidad para Android** desarrollado con **Kotlin moderno**, **Jetpack Compose**, **Material 3**, **Media3 ExoPlayer / MediaSession**, persistencia reactiva con **Room + KSP**, ecualizador nativo y generación inteligente de letras con **Inteligencia Artificial (Google Gemini)**.
 
 ---
 
-## 🏗️ Arquitectura del Proyecto
+## 📌 Contexto del Proyecto para el Asesor de Prompts / Asistente IA
 
-El proyecto sigue una arquitectura limpia pragmática organizada en capas:
+Este documento sirve como **fuente única de verdad (Ground Truth)** del proyecto para que cualquier modelo de lenguaje o asesor de prompts entienda el estado actual, el alcance técnico y las decisiones de diseño de **FranMusic**.
+
+### Identidad y Alcance
+- **Nombre de la Aplicación**: `FranMusic`
+- **Application ID / Package**: `com.francisco.franmusic`
+- **Enfoque Principal**: **Reproductor 100% Local y Offline**. Se han retirado intencionalmente las pantallas y lógicas de descargas y fuentes online simuladas para concentrar todos los recursos en una experiencia local impecable, ultra-rápida y visualmente impactante.
+- **Plataforma Objetivo**: Android 7.0+ (API 24+ hasta API 35+ / Android 15).
+- **Entorno de Compilación**:
+  - `compileSdk = 35`
+  - `targetSdk = 34`
+  - `minSdk = 24`
+  - Java 21 LTS (Temurin)
+  - Gradle 8.14.3 con Version Catalog (`gradle/libs.versions.toml`)
+  - Kotlin 2.0.21 con Kotlin Compose Compiler Plugin
+
+---
+
+## 🌟 Funcionalidades Implementadas (Features Core & Plus)
+
+### 1. 📂 Explorador de Carpetas de Audio (Plus #1)
+- Detección automática de la estructura de carpetas físicas en el dispositivo (`MediaStore.Audio.Media.DATA`).
+- Modelo `Folder(path, name, songCount, artworkUri)`.
+- Pestaña **Carpetas** en la Biblioteca y hoja de detalle (`FolderDetailSheet`) con opción para **"Reproducir Carpeta Completa"** con un solo toque.
+
+### 2. ❤️ Sistema de Favoritos y Listas Inteligentes (Plus #2)
+- Marcado rápido con icono de corazón animado (❤️) en el reproductor completo (`NowPlayingSheet`) y en los elementos de lista.
+- Consulta en Room de `favoriteSongs` (`isFavorite = true`).
+- Contador de reproducciones (`playCount`) persistido para generar automáticamente la lista inteligente de **"Más Escuchadas 🔥"**.
+
+### 3. ⏱️ Temporizador de Apagado / Sleep Timer (Plus #3)
+- `SleepTimerManager.kt` con cuenta regresiva observable mediante `StateFlow<SleepTimerState>`.
+- Presets rápidos de apagado: **15 min**, **30 min**, **45 min**, **60 min**.
+- Modo inteligente **"Fin de canción"**: detiene automáticamente la reproducción al terminar la pista actual.
+- Control interactivo mediante `SleepTimerDialog.kt` accesible desde el reproductor y desde Ajustes.
+
+### 4. 🎚️ Ecualizador Nativo y Refuerzo de Graves / Bass Boost (Plus #4)
+- `EqualizerManager.kt` conectado al `audioSessionId` de ExoPlayer en `PlaybackService`.
+- 5 bandas de ecualización de frecuencia (60Hz, 230Hz, 910Hz, 3.6kHz, 14kHz) con indicadores de ganancia en dB.
+- Presets de audio: *Plano*, *Rock*, *Pop*, *Bajo Potente*, *Voz Clara*, *Electrónica*.
+- Interruptor y deslizador de intensidad de **Refuerzo de Graves (Bass Boost)** (0 a 100%).
+- Hoja modal interactiva `EqualizerSheet.kt`.
+
+### 5. ✨ Visor de Letras Inteligente con IA y LRC (Plus #5)
+- `LyricsManager.kt` con arquitectura híbrida en 3 niveles:
+  1. **Local (.lrc / .txt)**: Detección y lectura inmediata de archivos de letras complementarios en la misma carpeta del audio.
+  2. **Búsqueda Abierta**: Consulta REST en segundo plano a la API abierta de LRCLIB.
+  3. **Generación con IA (Google Gemini)**: Botón con icono ✨ que consulta el modelo de lenguaje para estructurar la letra estrofa por estrofa, generar traducción si está en otro idioma e incluir un análisis o resumen temático (*AI Insight*).
+  4. **Persistencia en Room**: Toda letra obtenida o generada se guarda en `SongEntity.lyrics` para acceso offline instantáneo y permanente.
+- `LyricsSheet.kt`: Visor deslizante con auto-scroll sincronizado al compás de la reproducción y resaltado de la estrofa actual. Tocar cualquier línea sincronizada adelanta o retrasa la canción a ese segundo exacto.
+
+### 6. 🎨 Motor de Estilos Visuales Dinámicos (5 Temas)
+- Selector de temas en tiempo real mediante `AppThemeStyle.kt` y persistido en `ThemePreferences.kt`:
+  1. **Fran Neon (Cyberpunk)**: Fondo negro puro OLED (`#080B11`) con acentos neón cian (`#00F5D4`), violeta neón y rosa.
+  2. **Sunset Glow**: Fondo cálido noche (`#120814`) con acentos naranja fuego, ámbar dorado y magenta.
+  3. **Midnight Blue**: Fondo navy profundo (`#060B16`) con acentos azul zafiro (`#3A86FF`) y hielo.
+  4. **Emerald Groove**: Fondo bosque oscuro (`#06120B`) con acentos verde esmeralda (`#10B981`) y lima eléctrico.
+  5. **Fran Violet (Original)**: Estilo clásico FranMusic con violetas y cian.
+- Todos los componentes (MiniPlayer, NowPlaying, fondos, sliders y barras de navegación) se adaptan automáticamente a través de `LocalAppThemeStyle`.
+
+### 7. 🎧 Reproducción en Segundo Plano y Notificación Multimedia (Media3)
+- `PlaybackService.kt` extiende `MediaSessionService`.
+- Integración con el estilo multimedia nativo de Android (`MediaStyle`): carátula expandida, controles de reproducción (Anterior, Play/Pause, Siguiente, Favorito) y la barra de progreso ondulada (*squiggled seekbar*) de Android 13/14/15.
+- Gestión de `AudioFocus` (pausa automática ante llamadas telefónicas) y evento `BECOMING_NOISY` (pausa inmediata al desconectar auriculares o apagar Bluetooth).
+- WakeLock local (`C.WAKE_MODE_LOCAL`) para evitar que el CPU suspenda la reproducción de audio local.
+
+---
+
+## 🏛️ Estructura del Código Fuente
 
 ```
-app/src/main/java/com/auramusic/app/
-├── AuraMusicApp.kt                 # Application class
-├── MainActivity.kt                 # Single Activity Compose con Scaffold y navegación
+app/src/main/java/com/francisco/franmusic/
+├── FranMusicApp.kt                      # Aplicación Android base
+├── MainActivity.kt                      # Actividad principal Compose con Scaffold, NavigationBar y Sheets
 ├── domain/
-│   ├── model/                      # Modelos puros: Song, Album, Artist, Playlist, DownloadInfo
-│   └── repository/                 # Interfaces de repositorio y filtros
-├── data/
-│   ├── local/db/
-│   │   ├── AuraDatabase.kt         # Base de datos Room
-│   │   ├── dao/                    # SongDao, PlaylistDao, DownloadDao
-│   │   └── entity/                 # SongEntity, PlaylistEntity, PlaylistSongCrossRef, DownloadEntity
-│   ├── source/
-│   │   ├── MusicSource.kt          # Abstracción de fuentes
-│   │   ├── LocalMediaSource.kt     # MediaStore local
-│   │   └── LegalDemoMediaSource.kt # Catálogo online legal
+│   ├── model/
+│   │   ├── Song.kt                      # Modelo Song (metadatos, folderPath, isFavorite, playCount, lyrics)
+│   │   ├── Folder.kt                    # Modelo Folder (path, name, songCount, artworkUri)
+│   │   ├── Album.kt                     # Modelo Album (title, artist, songCount, year, artworkUri)
+│   │   ├── Artist.kt                    # Modelo Artist (name, songCount, artworkUri)
+│   │   ├── Playlist.kt                  # Modelo Playlist (id, name, createdAt, songCount)
+│   │   └── Lyrics.kt                    # Modelos LyricLine y LyricsData (sincronización y AI Insight)
 │   └── repository/
-│       └── MusicRepositoryImpl.kt  # Implementación unificada
+│       ├── MusicRepository.kt           # Contrato de repositorio principal
+│       └── SearchFilter.kt              # Filtros de búsqueda
+├── data/
+│   ├── local/
+│   │   ├── ThemePreferences.kt          # Persistencia del tema visual elegido
+│   │   └── db/
+│   │       ├── FranMusicDatabase.kt     # Base de datos Room (versión 2)
+│   │       ├── dao/
+│   │       │   ├── SongDao.kt           # Consultas de canciones, carpetas, favoritos, playCount y letras
+│   │       │   └── PlaylistDao.kt       # Gestión de playlists locales
+│   │       └── entity/
+│   │           ├── SongEntity.kt        # Entidad Room de canción
+│   │           ├── PlaylistEntity.kt    # Entidad Room de playlist
+│   │           └── PlaylistSongCrossRef.kt
+│   ├── source/
+│   │   ├── LocalMediaSource.kt          # Lector de MediaStore y extracción de rutas de carpetas
+│   │   └── LegalDemoMediaSource.kt      # Fuente de catálogo de demostración
+│   └── repository/
+│       └── MusicRepositoryImpl.kt       # Implementación reactiva de repositorio
 ├── playback/
-│   ├── Media3Cache.kt              # SimpleCache LRU de Media3
-│   └── PlayerManager.kt            # Controlador de MediaController y StateFlow reactivo
+│   ├── PlayerManager.kt                 # Singleton mediador de MediaController, cola y estado
+│   ├── EqualizerManager.kt              # Conexión con Equalizer y BassBoost nativos de Android
+│   ├── SleepTimerManager.kt             # Gestor del temporizador de apagado y cuenta regresiva
+│   ├── LyricsManager.kt                 # Motor de letras (.lrc, LRCLIB y Gemini AI)
+│   ├── PlaybackUiState.kt               # Estado reactivo del reproductor
+│   └── Media3Cache.kt                   # Caché de audio
 ├── service/
-│   └── PlaybackService.kt          # MediaSessionService para segundo plano
-├── download/
-│   ├── DownloadWorker.kt           # CoroutineWorker para descargas con notificación
-│   └── DownloadManagerHelper.kt    # Encolado en WorkManager
+│   └── PlaybackService.kt               # MediaSessionService para segundo plano y notificación
 └── ui/
-    ├── theme/                      # Color, Type, Theme (Material 3)
-    ├── components/                 # MiniPlayer, NowPlayingSheet, SongListItem
-    ├── screens/                    # HomeScreen, LibraryScreen, SearchScreen, DownloadsScreen, DetailSheets
-    └── viewmodel/                  # MainViewModel (MVVM reactivo con StateFlows)
+    ├── theme/
+    │   ├── AppThemeStyle.kt             # Definición de los 5 temas (colores, gradientes, superficies)
+    │   ├── Color.kt                     # Paleta de colores base
+    │   ├── Theme.kt                     # FranMusicTheme y LocalAppThemeStyle
+    │   └── Type.kt                      # Tipografía moderna
+    ├── components/
+    │   ├── MiniPlayer.kt                # Mini reproductor flotante con tema dinámico
+    │   ├── NowPlayingSheet.kt           # Gran reproductor con onda sonora animada, acciones y carátula
+    │   ├── LyricsSheet.kt               # Visor de letras sincronizadas con IA y tarjetas de análisis
+    │   ├── EqualizerSheet.kt            # Panel de ecualización y refuerzo de graves
+    │   ├── SleepTimerDialog.kt          # Selector y cuenta regresiva del temporizador de apagado
+    │   └── SongListItem.kt              # Elemento de lista con carátula y acciones rápidas
+    └── screens/
+        ├── HomeScreen.kt                # Resumen de inicio con accesos rápidos y estado
+        ├── LibraryScreen.kt             # Pestañas: Canciones, Carpetas, Álbumes, Artistas, Playlists
+        ├── SearchScreen.kt              # Búsqueda local instantánea con filtros
+        ├── SettingsScreen.kt            # Selector de temas, ajustes de IA, escaneo y utilidades
+        └── DetailDialogs.kt             # Hojas de detalle para Carpeta, Álbum, Artista y Playlist
 ```
 
 ---
 
-## 🚀 Requisitos y Compilación
+## 🛠️ Comandos de Terminal Útiles
 
-- **JDK**: Java 17 o 21 (Eclipse Adoptium Temurin recomendado).
-- **Android SDK**: `compileSdk = 35`, `minSdk = 24`, `targetSdk = 34`.
-- **Gradle**: 8.14.3 con Version Catalog (`gradle/libs.versions.toml`).
+```bash
+# Compilar y validar fuentes
+./gradlew compileDebugSources
 
-### Comandos de Terminal
+# Ejecutar la suite completa de pruebas unitarias
+./gradlew test
 
-- **Compilar Debug APK**:
-  ```bash
-  ./gradlew assembleDebug
-  ```
-
-- **Ejecutar Pruebas Unitarias**:
-  ```bash
-  ./gradlew test
-  ```
-
-- **Ejecutar Lint**:
-  ```bash
-  ./gradlew lint
-  ```
+# Generar el paquete APK de desarrollo
+./gradlew assembleDebug
+# Ubicación del APK: app/build/outputs/apk/debug/app-debug.apk
+```
 
 ---
 
-## 🔒 Legalidad y Fuentes Online
+## 💡 Guía para el Asesor de Prompts (Prompt Guidelines)
 
-AuraMusic cumple estrictamente con las políticas de derechos de autor:
-- No incluye scraping ni descarga de servicios protegidos por DRM o términos restrictivos (YouTube, Spotify, etc.).
-- Las pistas online provienen de grabaciones de dominio público licenciadas bajo Creative Commons (CC BY / CC0) de archivos abiertos como Musopen e Internet Archive.
-- Si se desea conectar un servidor propio (Navidrome / Subsonic), basta con implementar `MusicSource` configurando el host y las credenciales en DataStore o BuildConfig.
+Cuando formules nuevos requerimientos o prompts para este proyecto, ten en cuenta:
+1. **Mantener el enfoque 100% Local**: No reintroducir pestañas ni dependencias de streaming online innecesarias; la prioridad es la velocidad y excelencia en la reproducción de archivos del dispositivo.
+2. **Respetar el sistema de diseño reactivo**: Siempre usar `LocalAppThemeStyle.current` en componentes de Compose para que cualquier nueva pantalla responda inmediatamente al selector de los 5 temas.
+3. **Persistencia en Room**: Cualquier metadato nuevo de canciones debe incluirse en `SongEntity` y `Song.kt` con valores por defecto para mantener la compatibilidad hacia atrás.
+4. **Manejo de Audio**: Toda interacción con la reproducción debe pasar por `PlayerManager` y `PlaybackService` para garantizar que la notificación multimedia y el control en segundo plano sigan sincronizados.

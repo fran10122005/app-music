@@ -19,7 +19,7 @@ import com.francisco.franmusic.data.local.db.entity.SongEntity
         PlaylistSongCrossRef::class,
         DownloadEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class FranMusicDatabase : RoomDatabase() {

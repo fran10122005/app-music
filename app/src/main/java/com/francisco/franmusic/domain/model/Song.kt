@@ -17,7 +17,9 @@ data class Song(
     val folderPath: String = "",
     val folderName: String = "Música",
     val isFavorite: Boolean = false,
-    val playCount: Int = 0
+    val playCount: Int = 0,
+    val lyrics: String? = null,
+    val aiLyricsInsight: String? = null
 ) {
     val formattedDuration: String
         get() {

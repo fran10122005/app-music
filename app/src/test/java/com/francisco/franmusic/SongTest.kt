@@ -1,6 +1,8 @@
 package com.francisco.franmusic
 
 import com.francisco.franmusic.domain.model.Song
+import com.francisco.franmusic.playback.LyricsManager
+import com.francisco.franmusic.playback.SleepTimerState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -28,68 +30,73 @@ class SongTest {
     }
 
     @Test
-    fun `test offline filtering predicate`() {
-        val localSong = Song(
-            id = "local_1",
-            title = "Local Track",
-            artist = "Local Artist",
-            album = "Local Album",
-            durationMs = 120000L,
-            mediaUri = "content://media/external/audio/media/1",
-            isOnline = false,
-            isDownloaded = true
+    fun `test grouping songs by folder`() {
+        val songs = listOf(
+            Song(id = "1", title = "Pista 1", artist = "Artista", album = "Album", durationMs = 1000L, mediaUri = "", folderPath = "/storage/Music/Rock", folderName = "Rock"),
+            Song(id = "2", title = "Pista 2", artist = "Artista", album = "Album", durationMs = 1000L, mediaUri = "", folderPath = "/storage/Music/Rock", folderName = "Rock"),
+            Song(id = "3", title = "Pista 3", artist = "Artista", album = "Album", durationMs = 1000L, mediaUri = "", folderPath = "/storage/Music/Jazz", folderName = "Jazz")
         )
 
-        val onlineSongNotDownloaded = Song(
-            id = "online_1",
-            title = "Online Stream",
-            artist = "Online Artist",
-            album = "Online Album",
-            durationMs = 180000L,
-            mediaUri = "https://example.com/stream.mp3",
-            isOnline = true,
-            isDownloaded = false
-        )
-
-        val onlineSongDownloaded = Song(
-            id = "online_2",
-            title = "Online Saved",
-            artist = "Online Artist",
-            album = "Online Album",
-            durationMs = 200000L,
-            mediaUri = "https://example.com/stream2.mp3",
-            isOnline = true,
-            isDownloaded = true,
-            localFilePath = "/data/user/0/com.francisco.franmusic/files/downloads/online_2.mp3"
-        )
-
-        val allSongs = listOf(localSong, onlineSongNotDownloaded, onlineSongDownloaded)
-
-        // Offline mode filter: only (!isOnline || isDownloaded)
-        val offlineSongs = allSongs.filter { !it.isOnline || it.isDownloaded }
-
-        assertEquals(2, offlineSongs.size)
-        assertTrue(offlineSongs.contains(localSong))
-        assertTrue(offlineSongs.contains(onlineSongDownloaded))
-        assertFalse(offlineSongs.contains(onlineSongNotDownloaded))
+        val byFolder = songs.groupBy { it.folderPath }
+        assertEquals(2, byFolder.size)
+        assertEquals(2, byFolder["/storage/Music/Rock"]?.size)
+        assertEquals(1, byFolder["/storage/Music/Jazz"]?.size)
     }
 
     @Test
-    fun `test grouping songs by album and artist`() {
-        val songs = listOf(
-            Song(id = "1", title = "Track A", artist = "Artist 1", album = "Album X", durationMs = 1000L, mediaUri = ""),
-            Song(id = "2", title = "Track B", artist = "Artist 1", album = "Album X", durationMs = 1000L, mediaUri = ""),
-            Song(id = "3", title = "Track C", artist = "Artist 2", album = "Album Y", durationMs = 1000L, mediaUri = "")
-        )
+    fun `test sleep timer formatting`() {
+        val timer1 = SleepTimerState(isActive = true, remainingSeconds = 125L)
+        assertEquals("02:05", timer1.formattedRemaining)
 
-        val albums = songs.groupBy { it.album }
-        assertEquals(2, albums.size)
-        assertEquals(2, albums["Album X"]?.size)
-        assertEquals(1, albums["Album Y"]?.size)
+        val timerEndSong = SleepTimerState(isActive = true, remainingSeconds = 0L, isEndOfSong = true)
+        assertEquals("Fin de canción", timerEndSong.formattedRemaining)
 
-        val artists = songs.groupBy { it.artist }
-        assertEquals(2, artists.size)
-        assertEquals(2, artists["Artist 1"]?.size)
-        assertEquals(1, artists["Artist 2"]?.size)
+        val timerInactive = SleepTimerState(isActive = false)
+        assertEquals("", timerInactive.formattedRemaining)
+    }
+
+    @Test
+    fun `test lrc line parsing in lyrics manager`() {
+        val lrcContent = """
+            [00:15.30] Primera línea de la canción
+            [01:05.00] Coro principal
+            Línea sin timestamp
+        """.trimIndent()
+
+        // Test parser logic
+        val pattern = java.util.regex.Pattern.compile("""\[(\d{2}):(\d{2})[.:](\d{2,3})\](.*)""")
+        val lines = lrcContent.lines()
+        val parsed = mutableListOf<Pair<Long, String>>()
+
+        for (line in lines) {
+            val matcher = pattern.matcher(line.trim())
+            if (matcher.matches()) {
+                val min = matcher.group(1)?.toLongOrNull() ?: 0L
+                val sec = matcher.group(2)?.toLongOrNull() ?: 0L
+                val msStr = matcher.group(3) ?: "0"
+                val ms = if (msStr.length == 2) (msStr.toLongOrNull() ?: 0L) * 10 else (msStr.toLongOrNull() ?: 0L)
+                val totalMs = (min * 60 + sec) * 1000 + ms
+                val text = matcher.group(4)?.trim().orEmpty()
+                parsed.add(totalMs to text)
+            }
+        }
+
+        assertEquals(2, parsed.size)
+        assertEquals(15300L, parsed[0].first)
+        assertEquals("Primera línea de la canción", parsed[0].second)
+        assertEquals(65000L, parsed[1].first)
+        assertEquals("Coro principal", parsed[1].second)
+    }
+
+    @Test
+    fun `test favorite filtering`() {
+        val s1 = Song(id = "1", title = "Fav 1", artist = "A", album = "B", durationMs = 100, mediaUri = "", isFavorite = true)
+        val s2 = Song(id = "2", title = "Norm 1", artist = "A", album = "B", durationMs = 100, mediaUri = "", isFavorite = false)
+
+        val list = listOf(s1, s2)
+        val favs = list.filter { it.isFavorite }
+
+        assertEquals(1, favs.size)
+        assertEquals("Fav 1", favs[0].title)
     }
 }

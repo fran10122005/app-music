@@ -54,6 +54,11 @@ class PlayerManager private constructor(private val context: Context) {
 
     private val playlistQueue = mutableListOf<Song>()
 
+    val sleepTimerManager = SleepTimerManager(scope) {
+        controller?.pause()
+    }
+    val sleepTimerState: StateFlow<SleepTimerState> = sleepTimerManager.state
+
     init {
         initController()
     }
@@ -93,6 +98,7 @@ class PlayerManager private constructor(private val context: Context) {
             }
 
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                sleepTimerManager.onSongCompleted()
                 val mediaId = mediaItem?.mediaId
                 val matchedSong = playlistQueue.find { it.id == mediaId }
                 val index = playlistQueue.indexOfFirst { it.id == mediaId }
@@ -240,6 +246,18 @@ class PlayerManager private constructor(private val context: Context) {
         }
         player.repeatMode = nextMode
         _uiState.update { it.copy(repeatMode = nextMode) }
+    }
+
+    fun startSleepTimer(minutes: Int) {
+        sleepTimerManager.startTimerMinutes(minutes)
+    }
+
+    fun startSleepTimerEndOfSong() {
+        sleepTimerManager.startEndOfSong()
+    }
+
+    fun cancelSleepTimer() {
+        sleepTimerManager.cancel()
     }
 
     private fun Song.toMediaItem(): MediaItem {

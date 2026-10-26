@@ -39,9 +39,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.francisco.franmusic.playback.PlaybackUiState
-import com.francisco.franmusic.ui.theme.DarkSurfaceElevated
 import com.francisco.franmusic.ui.theme.GlassBorder
-import com.francisco.franmusic.ui.theme.PrimaryViolet
+import com.francisco.franmusic.ui.theme.LocalAppThemeStyle
 import com.francisco.franmusic.ui.theme.TextMuted
 import com.francisco.franmusic.ui.theme.TextPrimary
 import com.francisco.franmusic.ui.theme.TextSecondary
@@ -55,6 +54,7 @@ fun MiniPlayer(
     modifier: Modifier = Modifier
 ) {
     val song = state.currentSong
+    val theme = LocalAppThemeStyle.current
 
     AnimatedVisibility(
         visible = song != null,
@@ -68,7 +68,7 @@ fun MiniPlayer(
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 6.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(DarkSurfaceElevated.copy(alpha = 0.96f))
+                    .background(theme.surfaceElevated.copy(alpha = 0.96f))
                     .border(1.dp, GlassBorder, RoundedCornerShape(16.dp))
                     .clickable(onClick = onClick)
             ) {
@@ -84,7 +84,7 @@ fun MiniPlayer(
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(DarkSurfaceElevated),
+                                .background(theme.surfaceVariant),
                             contentAlignment = Alignment.Center
                         ) {
                             if (!song.artworkUri.isNullOrEmpty()) {
@@ -98,7 +98,7 @@ fun MiniPlayer(
                                 Icon(
                                     imageVector = Icons.Rounded.MusicNote,
                                     contentDescription = null,
-                                    tint = PrimaryViolet,
+                                    tint = theme.primary,
                                     modifier = Modifier.size(24.dp)
                                 )
                             }
@@ -136,7 +136,7 @@ fun MiniPlayer(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .padding(6.dp),
-                                color = PrimaryViolet,
+                                color = theme.primary,
                                 strokeWidth = 2.dp
                             )
                         } else {
@@ -173,7 +173,7 @@ fun MiniPlayer(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(2.5.dp),
-                        color = PrimaryViolet,
+                        color = theme.primary,
                         trackColor = TextMuted.copy(alpha = 0.2f),
                     )
                 }

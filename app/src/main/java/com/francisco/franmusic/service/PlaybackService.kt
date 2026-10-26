@@ -38,6 +38,14 @@ class PlaybackService : MediaSessionService() {
             .setWakeMode(C.WAKE_MODE_LOCAL)
             .build()
 
+        // Connect Equalizer & Bass Boost
+        player.addListener(object : androidx.media3.common.Player.Listener {
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                com.francisco.franmusic.playback.EqualizerManager.getInstance().attachToAudioSession(audioSessionId)
+            }
+        })
+        com.francisco.franmusic.playback.EqualizerManager.getInstance().attachToAudioSession(player.audioSessionId)
+
         val sessionActivityPendingIntent = PendingIntent.getActivity(
             this,
             0,

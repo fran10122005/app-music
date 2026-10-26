@@ -24,6 +24,8 @@ data class SongEntity(
     val folderName: String = "Música",
     val isFavorite: Boolean = false,
     val playCount: Int = 0,
+    val lyrics: String? = null,
+    val aiLyricsInsight: String? = null,
     val addedAt: Long = System.currentTimeMillis()
 ) {
     fun toDomain(): Song = Song(
@@ -43,7 +45,9 @@ data class SongEntity(
         folderPath = folderPath,
         folderName = folderName,
         isFavorite = isFavorite,
-        playCount = playCount
+        playCount = playCount,
+        lyrics = lyrics,
+        aiLyricsInsight = aiLyricsInsight
     )
 
     companion object {
@@ -64,7 +68,9 @@ data class SongEntity(
             folderPath = song.folderPath,
             folderName = song.folderName,
             isFavorite = song.isFavorite,
-            playCount = song.playCount
+            playCount = song.playCount,
+            lyrics = song.lyrics,
+            aiLyricsInsight = song.aiLyricsInsight
         )
     }
 }

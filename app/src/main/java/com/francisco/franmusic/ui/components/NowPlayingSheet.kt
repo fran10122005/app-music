@@ -1,6 +1,13 @@
 package com.francisco.franmusic.ui.components
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,20 +23,22 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -54,7 +63,6 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -62,14 +70,7 @@ import androidx.media3.common.Player
 import coil.compose.AsyncImage
 import com.francisco.franmusic.domain.model.Song
 import com.francisco.franmusic.playback.PlaybackUiState
-import com.francisco.franmusic.ui.theme.AccentGreen
-import com.francisco.franmusic.ui.theme.AccentPink
-import com.francisco.franmusic.ui.theme.DarkBackground
-import com.francisco.franmusic.ui.theme.DarkSurfaceElevated
-import com.francisco.franmusic.ui.theme.DarkSurfaceVariant
-import com.francisco.franmusic.ui.theme.PrimaryViolet
-import com.francisco.franmusic.ui.theme.PrimaryVioletLight
-import com.francisco.franmusic.ui.theme.SecondaryCyan
+import com.francisco.franmusic.ui.theme.LocalAppThemeStyle
 import com.francisco.franmusic.ui.theme.TextMuted
 import com.francisco.franmusic.ui.theme.TextPrimary
 import com.francisco.franmusic.ui.theme.TextSecondary
@@ -86,10 +87,13 @@ fun NowPlayingSheet(
     onToggleShuffle: () -> Unit,
     onToggleRepeat: () -> Unit,
     onToggleFavorite: (Song) -> Unit,
-    onDownloadClick: (Song) -> Unit,
+    onOpenLyricsClick: () -> Unit,
+    onOpenEqualizerClick: () -> Unit,
+    onOpenSleepTimerClick: () -> Unit,
     onAddToPlaylistClick: (Song) -> Unit
 ) {
     val song = state.currentSong ?: return
+    val theme = LocalAppThemeStyle.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var isDraggingSlider by remember { mutableStateOf(false) }
@@ -98,7 +102,7 @@ fun NowPlayingSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = DarkBackground,
+        containerColor = theme.background,
         dragHandle = null
     ) {
         Column(
@@ -126,11 +130,11 @@ fun NowPlayingSheet(
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "REPRODUCIENDO AHORA",
+                        text = "FRANMUSIC",
                         style = MaterialTheme.typography.labelSmall,
-                        color = PrimaryVioletLight,
+                        color = theme.primaryLight,
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.5.sp
+                        letterSpacing = 1.8.sp
                     )
                     Text(
                         text = song.album,
@@ -143,7 +147,7 @@ fun NowPlayingSheet(
 
                 IconButton(onClick = { onAddToPlaylistClick(song) }) {
                     Icon(
-                        imageVector = Icons.Rounded.PlaylistAdd,
+                        imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
                         contentDescription = "Añadir a playlist",
                         tint = TextPrimary,
                         modifier = Modifier.size(28.dp)
@@ -151,16 +155,21 @@ fun NowPlayingSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // Large Artwork
+            // Large Artwork with dynamic shadow
             Box(
                 modifier = Modifier
                     .fillMaxWidth(0.85f)
                     .aspectRatio(1f)
-                    .shadow(elevation = 24.dp, shape = RoundedCornerShape(24.dp), ambientColor = PrimaryViolet, spotColor = PrimaryViolet)
+                    .shadow(
+                        elevation = 28.dp,
+                        shape = RoundedCornerShape(24.dp),
+                        ambientColor = theme.primary,
+                        spotColor = theme.primary
+                    )
                     .clip(RoundedCornerShape(24.dp))
-                    .background(DarkSurfaceElevated),
+                    .background(theme.surfaceElevated),
                 contentAlignment = Alignment.Center
             ) {
                 if (!song.artworkUri.isNullOrEmpty()) {
@@ -174,29 +183,36 @@ fun NowPlayingSheet(
                     Icon(
                         imageVector = Icons.Rounded.MusicNote,
                         contentDescription = null,
-                        tint = PrimaryViolet,
+                        tint = theme.primary,
                         modifier = Modifier.size(90.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            // Song Info with Favorite Button
+            // Song Info with Favorite Button & Audio wave
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = song.title,
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = song.title,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        if (state.isPlaying) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            AnimatedAudioWave(tint = theme.primary)
+                        }
+                    }
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = song.artist,
@@ -214,7 +230,7 @@ fun NowPlayingSheet(
                     Icon(
                         imageVector = if (song.isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                         contentDescription = "Favorito",
-                        tint = if (song.isFavorite) AccentPink else TextMuted,
+                        tint = if (song.isFavorite) theme.accent else TextMuted,
                         modifier = Modifier.size(30.dp)
                     )
                 }
@@ -222,7 +238,7 @@ fun NowPlayingSheet(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Badges
+            // Badges (Folder & Local badge)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Start,
@@ -230,12 +246,12 @@ fun NowPlayingSheet(
             ) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = if (song.isDownloaded) AccentGreen.copy(alpha = 0.15f) else DarkSurfaceVariant
+                    color = theme.primary.copy(alpha = 0.15f)
                 ) {
                     Text(
-                        text = if (song.isDownloaded) "✓ Audio Local" else "En Línea",
+                        text = "✓ Audio Local",
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (song.isDownloaded) AccentGreen else SecondaryCyan,
+                        color = theme.primaryLight,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
@@ -244,7 +260,7 @@ fun NowPlayingSheet(
                     Spacer(modifier = Modifier.width(8.dp))
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = DarkSurfaceVariant
+                        color = theme.surfaceVariant
                     ) {
                         Text(
                             text = "📁 ${song.folderName}",
@@ -256,7 +272,7 @@ fun NowPlayingSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Seekbar
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -271,9 +287,9 @@ fun NowPlayingSheet(
                         isDraggingSlider = false
                     },
                     colors = SliderDefaults.colors(
-                        thumbColor = PrimaryVioletLight,
-                        activeTrackColor = PrimaryViolet,
-                        inactiveTrackColor = DarkSurfaceElevated
+                        thumbColor = theme.primaryLight,
+                        activeTrackColor = theme.primary,
+                        inactiveTrackColor = theme.surfaceElevated
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -298,7 +314,7 @@ fun NowPlayingSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Main Playback Controls
             Row(
@@ -311,7 +327,7 @@ fun NowPlayingSheet(
                     Icon(
                         imageVector = Icons.Rounded.Shuffle,
                         contentDescription = "Aleatorio",
-                        tint = if (state.shuffleMode) PrimaryViolet else TextMuted,
+                        tint = if (state.shuffleMode) theme.primary else TextMuted,
                         modifier = Modifier.size(26.dp)
                     )
                 }
@@ -333,11 +349,11 @@ fun NowPlayingSheet(
                 Box(
                     modifier = Modifier
                         .size(68.dp)
-                        .shadow(12.dp, CircleShape, ambientColor = PrimaryViolet, spotColor = PrimaryViolet)
+                        .shadow(14.dp, CircleShape, ambientColor = theme.primary, spotColor = theme.primary)
                         .clip(CircleShape)
                         .background(
                             Brush.linearGradient(
-                                listOf(PrimaryViolet, PrimaryVioletLight)
+                                listOf(theme.primary, theme.secondary)
                             )
                         ),
                     contentAlignment = Alignment.Center
@@ -356,7 +372,7 @@ fun NowPlayingSheet(
                             Icon(
                                 imageVector = if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                                 contentDescription = if (state.isPlaying) "Pausar" else "Reproducir",
-                                tint = TextPrimary,
+                                tint = theme.background,
                                 modifier = Modifier.size(40.dp)
                             )
                         }
@@ -382,7 +398,7 @@ fun NowPlayingSheet(
                         Player.REPEAT_MODE_ONE -> Icons.Rounded.RepeatOne
                         else -> Icons.Rounded.Repeat
                     }
-                    val tint = if (state.repeatMode != Player.REPEAT_MODE_OFF) PrimaryViolet else TextMuted
+                    val tint = if (state.repeatMode != Player.REPEAT_MODE_OFF) theme.primary else TextMuted
                     Icon(
                         imageVector = icon,
                         contentDescription = "Repetir",
@@ -392,54 +408,117 @@ fun NowPlayingSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-            // Bottom Actions: Download / Local status info
+            // Quick Tools Bar: Lyrics with AI, Equalizer, Sleep Timer
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .background(DarkSurfaceElevated)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .background(theme.surfaceElevated)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                // Lyrics button
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onOpenLyricsClick() }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Icon(
-                        imageVector = if (song.isDownloaded) Icons.Rounded.CheckCircle else Icons.Rounded.Download,
+                        imageVector = Icons.Rounded.Lyrics,
                         contentDescription = null,
-                        tint = if (song.isDownloaded) AccentGreen else PrimaryViolet,
-                        modifier = Modifier.size(24.dp)
+                        tint = theme.primary,
+                        modifier = Modifier.size(20.dp)
                     )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = if (song.isDownloaded) "Audio disponible en tu dispositivo" else "Disponible para descarga offline",
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = if (song.isDownloaded) "Reproducción local instantánea" else "Guardar en almacenamiento de FranMusic",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted
-                        )
-                    }
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Letras ✨",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
                 }
 
-                if (song.isOnline && !song.isDownloaded) {
-                    IconButton(
-                        onClick = { onDownloadClick(song) },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Download,
-                            contentDescription = "Descargar canción",
-                            tint = PrimaryVioletLight
-                        )
-                    }
+                // Equalizer button
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onOpenEqualizerClick() }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.GraphicEq,
+                        contentDescription = null,
+                        tint = theme.secondary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Ecualizador",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                }
+
+                // Sleep Timer button
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onOpenSleepTimerClick() }
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Timer,
+                        contentDescription = null,
+                        tint = theme.accent,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Temporizador",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
                 }
             }
         }
+    }
+}
+
+@Composable
+fun AnimatedAudioWave(tint: androidx.compose.ui.graphics.Color) {
+    val infiniteTransition = rememberInfiniteTransition(label = "wave")
+    val h1 by infiniteTransition.animateFloat(
+        initialValue = 4f, targetValue = 18f,
+        animationSpec = infiniteRepeatable(tween(400, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "h1"
+    )
+    val h2 by infiniteTransition.animateFloat(
+        initialValue = 16f, targetValue = 6f,
+        animationSpec = infiniteRepeatable(tween(550, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "h2"
+    )
+    val h3 by infiniteTransition.animateFloat(
+        initialValue = 6f, targetValue = 20f,
+        animationSpec = infiniteRepeatable(tween(350, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "h3"
+    )
+
+    Row(
+        verticalAlignment = Alignment.Bottom,
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = Modifier.height(20.dp)
+    ) {
+        Box(modifier = Modifier.width(3.dp).height(h1.dp).clip(RoundedCornerShape(2.dp)).background(tint))
+        Box(modifier = Modifier.width(3.dp).height(h2.dp).clip(RoundedCornerShape(2.dp)).background(tint))
+        Box(modifier = Modifier.width(3.dp).height(h3.dp).clip(RoundedCornerShape(2.dp)).background(tint))
     }
 }

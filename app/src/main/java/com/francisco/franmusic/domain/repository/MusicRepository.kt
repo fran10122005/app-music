@@ -39,6 +39,7 @@ interface MusicRepository {
     // Favorites & Play count
     suspend fun toggleFavorite(songId: String, isFavorite: Boolean)
     suspend fun recordSongPlayed(songId: String)
+    suspend fun saveLyrics(songId: String, lyrics: String, insight: String?)
 
     // Playlists
     suspend fun createPlaylist(name: String): Long

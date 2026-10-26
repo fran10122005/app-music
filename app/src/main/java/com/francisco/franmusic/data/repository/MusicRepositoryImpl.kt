@@ -208,6 +208,10 @@ class MusicRepositoryImpl(
         songDao.incrementPlayCount(songId)
     }
 
+    override suspend fun saveLyrics(songId: String, lyrics: String, insight: String?) = withContext(Dispatchers.IO) {
+        songDao.updateLyrics(songId, lyrics, insight)
+    }
+
     override suspend fun createPlaylist(name: String): Long = withContext(Dispatchers.IO) {
         playlistDao.insertPlaylist(PlaylistEntity(name = name))
     }

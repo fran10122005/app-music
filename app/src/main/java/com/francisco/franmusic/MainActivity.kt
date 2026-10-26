@@ -23,10 +23,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.FolderSpecial
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -50,22 +50,21 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.francisco.franmusic.domain.model.Song
+import com.francisco.franmusic.ui.components.EqualizerSheet
+import com.francisco.franmusic.ui.components.LyricsSheet
 import com.francisco.franmusic.ui.components.MiniPlayer
 import com.francisco.franmusic.ui.components.NowPlayingSheet
+import com.francisco.franmusic.ui.components.SleepTimerDialog
 import com.francisco.franmusic.ui.screens.AlbumDetailSheet
 import com.francisco.franmusic.ui.screens.ArtistDetailSheet
-import com.francisco.franmusic.ui.screens.DownloadsScreen
 import com.francisco.franmusic.ui.screens.FolderDetailSheet
 import com.francisco.franmusic.ui.screens.HomeScreen
 import com.francisco.franmusic.ui.screens.LibraryScreen
 import com.francisco.franmusic.ui.screens.PlaylistDetailSheet
 import com.francisco.franmusic.ui.screens.SearchScreen
-import com.francisco.franmusic.ui.theme.DarkBackground
-import com.francisco.franmusic.ui.theme.DarkSurface
-import com.francisco.franmusic.ui.theme.DarkSurfaceElevated
+import com.francisco.franmusic.ui.screens.SettingsScreen
 import com.francisco.franmusic.ui.theme.FranMusicTheme
-import com.francisco.franmusic.ui.theme.PrimaryViolet
-import com.francisco.franmusic.ui.theme.PrimaryVioletLight
+import com.francisco.franmusic.ui.theme.LocalAppThemeStyle
 import com.francisco.franmusic.ui.theme.TextMuted
 import com.francisco.franmusic.ui.theme.TextPrimary
 import com.francisco.franmusic.ui.viewmodel.AppScreen
@@ -79,7 +78,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            FranMusicTheme {
+            val currentTheme by viewModel.currentTheme.collectAsState()
+            FranMusicTheme(style = currentTheme) {
                 MainAppScreen(viewModel = viewModel)
             }
         }
@@ -88,21 +88,25 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainAppScreen(viewModel: MainViewModel) {
+    val theme = LocalAppThemeStyle.current
     val currentScreen by viewModel.currentScreen.collectAsState()
     val libraryTab by viewModel.libraryTab.collectAsState()
     val playbackState by viewModel.playbackState.collectAsState()
-    val isOfflineMode by viewModel.isOfflineMode.collectAsState()
+    val currentTheme by viewModel.currentTheme.collectAsState()
 
     val songs by viewModel.songs.collectAsState()
     val albums by viewModel.albums.collectAsState()
     val artists by viewModel.artists.collectAsState()
     val folders by viewModel.folders.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
-    val downloads by viewModel.downloads.collectAsState()
 
     val searchQuery by viewModel.searchQuery.collectAsState()
     val searchFilter by viewModel.searchFilter.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
+
+    val sleepTimerState by viewModel.sleepTimerState.collectAsState()
+    val equalizerState by viewModel.equalizerState.collectAsState()
+    val lyricsState by viewModel.lyricsState.collectAsState()
 
     val isNowPlayingExpanded by viewModel.isNowPlayingExpanded.collectAsState()
     val selectedAlbum by viewModel.selectedAlbum.collectAsState()
@@ -110,6 +114,9 @@ fun MainAppScreen(viewModel: MainViewModel) {
     val selectedFolder by viewModel.selectedFolder.collectAsState()
     val selectedPlaylist by viewModel.selectedPlaylist.collectAsState()
 
+    var showLyricsSheet by remember { mutableStateOf(false) }
+    var showEqualizerSheet by remember { mutableStateOf(false) }
+    var showSleepTimerDialog by remember { mutableStateOf(false) }
     var songToAddToPlaylist by remember { mutableStateOf<Song?>(null) }
 
     // Request permissions
@@ -134,9 +141,9 @@ fun MainAppScreen(viewModel: MainViewModel) {
     }
 
     Scaffold(
-        containerColor = DarkBackground,
+        containerColor = theme.background,
         bottomBar = {
-            Column(modifier = Modifier.background(DarkBackground)) {
+            Column(modifier = Modifier.background(theme.background)) {
                 // Persistent MiniPlayer
                 MiniPlayer(
                     state = playbackState,
@@ -147,14 +154,14 @@ fun MainAppScreen(viewModel: MainViewModel) {
 
                 // Navigation Bar
                 NavigationBar(
-                    containerColor = DarkSurface,
+                    containerColor = theme.surface,
                     tonalElevation = 8.dp
                 ) {
                     val navItems = listOf(
                         Triple(AppScreen.HOME, "Inicio", Icons.Rounded.Home),
                         Triple(AppScreen.LIBRARY, "Biblioteca", Icons.Rounded.LibraryMusic),
                         Triple(AppScreen.SEARCH, "Buscar", Icons.Rounded.Search),
-                        Triple(AppScreen.DOWNLOADS, "Descargas", Icons.Rounded.Download)
+                        Triple(AppScreen.SETTINGS, "Ajustes", Icons.Rounded.Palette)
                     )
 
                     navItems.forEach { (screen, label, icon) ->
@@ -166,7 +173,7 @@ fun MainAppScreen(viewModel: MainViewModel) {
                                 Icon(
                                     imageVector = icon,
                                     contentDescription = label,
-                                    tint = if (selected) PrimaryVioletLight else TextMuted
+                                    tint = if (selected) theme.primary else TextMuted
                                 )
                             },
                             label = {
@@ -174,11 +181,11 @@ fun MainAppScreen(viewModel: MainViewModel) {
                                     text = label,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (selected) PrimaryVioletLight else TextMuted
+                                    color = if (selected) theme.primary else TextMuted
                                 )
                             },
                             colors = NavigationBarItemDefaults.colors(
-                                indicatorColor = DarkSurfaceElevated
+                                indicatorColor = theme.surfaceElevated
                             )
                         )
                     }
@@ -196,10 +203,10 @@ fun MainAppScreen(viewModel: MainViewModel) {
                     HomeScreen(
                         songs = songs,
                         playbackState = playbackState,
-                        isOfflineMode = isOfflineMode,
-                        onToggleOfflineMode = { viewModel.toggleOfflineMode() },
+                        isOfflineMode = true,
+                        onToggleOfflineMode = { },
                         onSongClick = { viewModel.playSong(it) },
-                        onDownloadClick = { viewModel.downloadSong(it) },
+                        onDownloadClick = { },
                         onAddToPlaylistClick = { songToAddToPlaylist = it }
                     )
                 }
@@ -221,7 +228,7 @@ fun MainAppScreen(viewModel: MainViewModel) {
                         onArtistClick = { viewModel.selectArtist(it) },
                         onPlaylistClick = { viewModel.selectPlaylist(it) },
                         onCreatePlaylist = { viewModel.createPlaylist(it) },
-                        onDownloadClick = { viewModel.downloadSong(it) },
+                        onDownloadClick = { },
                         onAddToPlaylistClick = { songToAddToPlaylist = it }
                     )
                 }
@@ -235,25 +242,20 @@ fun MainAppScreen(viewModel: MainViewModel) {
                         onQueryChange = { viewModel.onSearchQueryChanged(it) },
                         onFilterChange = { viewModel.onSearchFilterChanged(it) },
                         onSongClick = { viewModel.playSong(it, searchResults) },
-                        onDownloadClick = { viewModel.downloadSong(it) },
+                        onDownloadClick = { },
                         onAddToPlaylistClick = { songToAddToPlaylist = it }
                     )
                 }
 
-                AppScreen.DOWNLOADS -> {
-                    val downloadedSongs = songs.filter { it.isDownloaded }
-                    DownloadsScreen(
-                        downloadedSongs = downloadedSongs,
-                        activeDownloads = downloads,
-                        playbackState = playbackState,
-                        onSongClick = { viewModel.playSong(it, downloadedSongs) },
-                        onDeleteDownload = { viewModel.deleteDownload(it) },
-                        onPlayAllClick = {
-                            if (downloadedSongs.isNotEmpty()) {
-                                viewModel.playSong(downloadedSongs.first(), downloadedSongs)
-                            }
-                        },
-                        onAddToPlaylistClick = { songToAddToPlaylist = it }
+                AppScreen.SETTINGS -> {
+                    SettingsScreen(
+                        currentTheme = currentTheme,
+                        geminiApiKey = viewModel.getGeminiApiKey(),
+                        onThemeSelect = { viewModel.setTheme(it) },
+                        onSaveApiKey = { viewModel.setGeminiApiKey(it) },
+                        onOpenEqualizer = { showEqualizerSheet = true },
+                        onOpenSleepTimer = { showSleepTimerDialog = true },
+                        onRescanLibrary = { viewModel.rescanLibrary() }
                     )
                 }
             }
@@ -272,12 +274,49 @@ fun MainAppScreen(viewModel: MainViewModel) {
             onToggleShuffle = { viewModel.toggleShuffle() },
             onToggleRepeat = { viewModel.toggleRepeat() },
             onToggleFavorite = { viewModel.toggleFavorite(it) },
-            onDownloadClick = { viewModel.downloadSong(it) },
+            onOpenLyricsClick = { showLyricsSheet = true },
+            onOpenEqualizerClick = { showEqualizerSheet = true },
+            onOpenSleepTimerClick = { showSleepTimerDialog = true },
             onAddToPlaylistClick = { songToAddToPlaylist = it }
         )
     }
 
-    // Folder Detail Sheet (Plus #1)
+    // Lyrics Modal Sheet (with AI generator)
+    if (showLyricsSheet && playbackState.currentSong != null) {
+        LyricsSheet(
+            song = playbackState.currentSong!!,
+            lyricsState = lyricsState,
+            currentPositionMs = playbackState.currentPositionMs,
+            onDismiss = { showLyricsSheet = false },
+            onGenerateWithAi = { playbackState.currentSong?.let { viewModel.generateAiLyrics(it) } },
+            onSeekToTime = { viewModel.seekToPositionMs(it) }
+        )
+    }
+
+    // Equalizer Modal Sheet
+    if (showEqualizerSheet) {
+        EqualizerSheet(
+            state = equalizerState,
+            onDismiss = { showEqualizerSheet = false },
+            onBandLevelChange = { band, level -> viewModel.setEqualizerBandLevel(band, level) },
+            onSelectPreset = { viewModel.selectEqualizerPreset(it) },
+            onToggleBassBoost = { viewModel.toggleBassBoost(it) },
+            onBassBoostStrengthChange = { viewModel.setBassBoostStrength(it) }
+        )
+    }
+
+    // Sleep Timer Dialog
+    if (showSleepTimerDialog) {
+        SleepTimerDialog(
+            timerState = sleepTimerState,
+            onDismiss = { showSleepTimerDialog = false },
+            onStartMinutes = { viewModel.startSleepTimer(it) },
+            onStartEndOfSong = { viewModel.startSleepTimerEndOfSong() },
+            onCancelTimer = { viewModel.cancelSleepTimer() }
+        )
+    }
+
+    // Folder Detail Sheet
     selectedFolder?.let { folder ->
         val folderSongsState by viewModel.repository.getSongsByFolder(folder.path)
             .collectAsState(initial = emptyList())
@@ -288,7 +327,7 @@ fun MainAppScreen(viewModel: MainViewModel) {
             onDismiss = { viewModel.selectFolder(null) },
             onPlayAllClick = { viewModel.playFolder(folder) },
             onSongClick = { viewModel.playSong(it, folderSongsState) },
-            onDownloadClick = { viewModel.downloadSong(it) },
+            onDownloadClick = { },
             onAddToPlaylistClick = { songToAddToPlaylist = it }
         )
     }
@@ -302,7 +341,7 @@ fun MainAppScreen(viewModel: MainViewModel) {
             playbackState = playbackState,
             onDismiss = { viewModel.selectAlbum(null) },
             onSongClick = { viewModel.playSong(it, albumSongs) },
-            onDownloadClick = { viewModel.downloadSong(it) },
+            onDownloadClick = { },
             onAddToPlaylistClick = { songToAddToPlaylist = it }
         )
     }
@@ -316,84 +355,101 @@ fun MainAppScreen(viewModel: MainViewModel) {
             playbackState = playbackState,
             onDismiss = { viewModel.selectArtist(null) },
             onSongClick = { viewModel.playSong(it, artistSongs) },
-            onDownloadClick = { viewModel.downloadSong(it) },
+            onDownloadClick = { },
             onAddToPlaylistClick = { songToAddToPlaylist = it }
         )
     }
 
     // Playlist Detail Sheet
     selectedPlaylist?.let { playlist ->
-        val playlistSongsState by viewModel.repository.getSongsForPlaylist(playlist.id)
+        val playlistSongs by viewModel.repository.getSongsForPlaylist(playlist.id)
             .collectAsState(initial = emptyList())
-
         PlaylistDetailSheet(
             playlist = playlist,
-            songs = playlistSongsState,
+            songs = playlistSongs,
             playbackState = playbackState,
             onDismiss = { viewModel.selectPlaylist(null) },
-            onSongClick = { viewModel.playSong(it, playlistSongsState) },
-            onDownloadClick = { viewModel.downloadSong(it) },
+            onSongClick = { viewModel.playSong(it, playlistSongs) },
+            onDownloadClick = { },
             onAddToPlaylistClick = { songToAddToPlaylist = it }
         )
     }
 
-    // Add to Playlist Selection Dialog
+    // Add To Playlist Dialog
     songToAddToPlaylist?.let { song ->
-        AlertDialog(
-            onDismissRequest = { songToAddToPlaylist = null },
-            containerColor = DarkSurfaceElevated,
-            title = {
-                Text(
-                    text = "Añadir a playlist",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
+        AddToPlaylistDialog(
+            playlists = playlists,
+            onDismiss = { songToAddToPlaylist = null },
+            onPlaylistSelected = { playlist ->
+                viewModel.addSongToPlaylist(playlist.id, song.id)
+                songToAddToPlaylist = null
             },
-            text = {
-                if (playlists.isEmpty()) {
-                    Text(
-                        text = "No tienes playlists aún. Crea una en la pestaña Biblioteca.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextMuted
-                    )
-                } else {
-                    LazyColumn(modifier = Modifier.fillMaxWidth()) {
-                        items(playlists) { playlist ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable {
-                                        viewModel.addSongToPlaylist(playlist.id, song.id)
-                                        songToAddToPlaylist = null
-                                    }
-                                    .padding(vertical = 12.dp, horizontal = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.FolderSpecial,
-                                    contentDescription = null,
-                                    tint = PrimaryViolet,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = playlist.name,
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = TextPrimary
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { songToAddToPlaylist = null }) {
-                    Text("Cerrar", color = TextMuted)
-                }
+            onCreateNewPlaylist = { name ->
+                viewModel.createPlaylist(name)
             }
         )
     }
+}
+
+@Composable
+private fun AddToPlaylistDialog(
+    playlists: List<com.francisco.franmusic.domain.model.Playlist>,
+    onDismiss: () -> Unit,
+    onPlaylistSelected: (com.francisco.franmusic.domain.model.Playlist) -> Unit,
+    onCreateNewPlaylist: (String) -> Unit
+) {
+    val theme = LocalAppThemeStyle.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = theme.surface,
+        title = {
+            Text(
+                text = "Añadir a playlist",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary
+            )
+        },
+        text = {
+            if (playlists.isEmpty()) {
+                Text(
+                    text = "No tienes playlists creadas. Ve a la biblioteca para crear una.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextMuted
+                )
+            } else {
+                LazyColumn {
+                    items(playlists) { playlist ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onPlaylistSelected(playlist) }
+                                .padding(vertical = 12.dp, horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.FolderSpecial,
+                                contentDescription = null,
+                                tint = theme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = playlist.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = TextPrimary
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cerrar", color = theme.primary)
+            }
+        }
+    )
 }

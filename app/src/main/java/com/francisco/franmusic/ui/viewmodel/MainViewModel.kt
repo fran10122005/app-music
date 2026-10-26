@@ -3,6 +3,7 @@ package com.francisco.franmusic.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.francisco.franmusic.data.local.ThemePreferences
 import com.francisco.franmusic.data.local.db.FranMusicDatabase
 import com.francisco.franmusic.data.repository.MusicRepositoryImpl
 import com.francisco.franmusic.data.source.LegalDemoMediaSource
@@ -15,9 +16,14 @@ import com.francisco.franmusic.domain.model.Playlist
 import com.francisco.franmusic.domain.model.Song
 import com.francisco.franmusic.domain.repository.MusicRepository
 import com.francisco.franmusic.domain.repository.SearchFilter
-import com.francisco.franmusic.download.DownloadManagerHelper
+import com.francisco.franmusic.playback.EqualizerManager
+import com.francisco.franmusic.playback.EqualizerUiState
+import com.francisco.franmusic.playback.LyricsManager
+import com.francisco.franmusic.playback.LyricsUiState
 import com.francisco.franmusic.playback.PlaybackUiState
 import com.francisco.franmusic.playback.PlayerManager
+import com.francisco.franmusic.playback.SleepTimerState
+import com.francisco.franmusic.ui.theme.AppThemeStyle
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -32,7 +38,7 @@ enum class AppScreen {
     HOME,
     LIBRARY,
     SEARCH,
-    DOWNLOADS
+    SETTINGS
 }
 
 enum class LibraryTab {
@@ -58,10 +64,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     )
 
     private val playerManager = PlayerManager.getInstance(application)
-    private val downloadHelper = DownloadManagerHelper.getInstance(application)
+    private val themePreferences = ThemePreferences(application)
+    private val equalizerManager = EqualizerManager.getInstance()
+
+    private val lyricsManager = LyricsManager(application) { songId, lyricsText, insight ->
+        repository.saveLyrics(songId, lyricsText, insight)
+    }
 
     val playbackState: StateFlow<PlaybackUiState> = playerManager.uiState
-    val isOfflineMode: StateFlow<Boolean> = repository.isOfflineMode
+    val currentTheme: StateFlow<AppThemeStyle> = themePreferences.currentTheme
+    val sleepTimerState: StateFlow<SleepTimerState> = playerManager.sleepTimerState
+    val equalizerState: StateFlow<EqualizerUiState> = equalizerManager.uiState
+    val lyricsState: StateFlow<LyricsUiState> = lyricsManager.uiState
 
     // Navigation state
     private val _currentScreen = MutableStateFlow(AppScreen.HOME)
@@ -87,9 +101,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val playlists: StateFlow<List<Playlist>> = repository.playlists
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val downloads: StateFlow<List<DownloadInfo>> = repository.downloads
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val favoriteSongs: StateFlow<List<Song>> = repository.favoriteSongs
@@ -136,11 +147,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _isNowPlayingExpanded.value = expanded
     }
 
-    fun toggleOfflineMode() {
-        repository.setOfflineMode(!isOfflineMode.value)
+    fun setTheme(theme: AppThemeStyle) {
+        themePreferences.setTheme(theme)
     }
 
     fun onPermissionGranted() {
+        rescanLibrary()
+    }
+
+    fun rescanLibrary() {
         viewModelScope.launch {
             repository.refreshLocalSongs()
         }
@@ -151,6 +166,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         playerManager.playSong(song, queue)
         viewModelScope.launch {
             repository.recordSongPlayed(song.id)
+            lyricsManager.loadLyrics(song)
         }
     }
 
@@ -175,18 +191,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun skipNext() {
         playerManager.skipNext()
+        playerManager.uiState.value.currentSong?.let { loadLyricsForSong(it) }
     }
 
     fun skipPrevious() {
         playerManager.skipPrevious()
+        playerManager.uiState.value.currentSong?.let { loadLyricsForSong(it) }
     }
 
-    fun seekTo(positionMs: Long) {
+    fun seekToProgress(progress: Float) {
+        playerManager.seekToProgress(progress)
+    }
+
+    fun seekToPositionMs(positionMs: Long) {
         playerManager.seekTo(positionMs)
-    }
-
-    fun seekToProgress(fraction: Float) {
-        playerManager.seekToProgress(fraction)
     }
 
     fun toggleShuffle() {
@@ -197,6 +215,55 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         playerManager.toggleRepeat()
     }
 
+    // Sleep Timer
+    fun startSleepTimer(minutes: Int) {
+        playerManager.startSleepTimer(minutes)
+    }
+
+    fun startSleepTimerEndOfSong() {
+        playerManager.startSleepTimerEndOfSong()
+    }
+
+    fun cancelSleepTimer() {
+        playerManager.cancelSleepTimer()
+    }
+
+    // Equalizer
+    fun setEqualizerBandLevel(band: Int, level: Int) {
+        equalizerManager.setBandLevel(band, level)
+    }
+
+    fun selectEqualizerPreset(index: Int) {
+        equalizerManager.selectPreset(index)
+    }
+
+    fun toggleBassBoost(enabled: Boolean) {
+        equalizerManager.toggleBassBoost(enabled)
+    }
+
+    fun setBassBoostStrength(strength: Int) {
+        equalizerManager.setBassBoostStrength(strength)
+    }
+
+    // Lyrics & AI
+    fun loadLyricsForSong(song: Song) {
+        viewModelScope.launch {
+            lyricsManager.loadLyrics(song)
+        }
+    }
+
+    fun generateAiLyrics(song: Song) {
+        viewModelScope.launch {
+            lyricsManager.generateWithAi(song)
+        }
+    }
+
+    fun getGeminiApiKey(): String = lyricsManager.geminiApiKey
+
+    fun setGeminiApiKey(key: String) {
+        lyricsManager.geminiApiKey = key
+    }
+
     // Search actions
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
@@ -204,17 +271,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onSearchFilterChanged(filter: SearchFilter) {
         _searchFilter.value = filter
-    }
-
-    // Downloads
-    fun downloadSong(song: Song) {
-        downloadHelper.startDownload(song)
-    }
-
-    fun deleteDownload(songId: String) {
-        viewModelScope.launch {
-            repository.deleteDownload(songId)
-        }
     }
 
     // Playlists
