@@ -38,11 +38,8 @@ import com.francisco.franmusic.domain.model.Song
 import com.francisco.franmusic.domain.repository.SearchFilter
 import com.francisco.franmusic.playback.PlaybackUiState
 import com.francisco.franmusic.ui.components.SongListItem
-import com.francisco.franmusic.ui.theme.DarkBackground
-import com.francisco.franmusic.ui.theme.DarkSurfaceElevated
 import com.francisco.franmusic.ui.theme.GlassBorder
-import com.francisco.franmusic.ui.theme.PrimaryViolet
-import com.francisco.franmusic.ui.theme.PrimaryVioletLight
+import com.francisco.franmusic.ui.theme.LocalAppThemeStyle
 import com.francisco.franmusic.ui.theme.TextMuted
 import com.francisco.franmusic.ui.theme.TextPrimary
 import com.francisco.franmusic.ui.theme.TextSecondary
@@ -56,14 +53,16 @@ fun SearchScreen(
     onQueryChange: (String) -> Unit,
     onFilterChange: (SearchFilter) -> Unit,
     onSongClick: (Song) -> Unit,
-    onDownloadClick: (Song) -> Unit,
+    onDownloadClick: (Song) -> Unit = {},
     onAddToPlaylistClick: (Song) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val theme = LocalAppThemeStyle.current
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(DarkBackground)
+            .background(theme.background)
     ) {
         // Search Input
         Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
@@ -79,12 +78,12 @@ fun SearchScreen(
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = onQueryChange,
-                placeholder = { Text("Canciones, artistas o álbumes...", color = TextMuted) },
+                placeholder = { Text("Canciones, artistas, álbumes o carpetas...", color = TextMuted) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Rounded.Search,
                         contentDescription = null,
-                        tint = PrimaryVioletLight
+                        tint = theme.primaryLight
                     )
                 },
                 trailingIcon = {
@@ -103,9 +102,9 @@ fun SearchScreen(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = TextPrimary,
                     unfocusedTextColor = TextPrimary,
-                    focusedContainerColor = DarkSurfaceElevated,
-                    unfocusedContainerColor = DarkSurfaceElevated,
-                    focusedBorderColor = PrimaryViolet,
+                    focusedContainerColor = theme.surfaceElevated,
+                    unfocusedContainerColor = theme.surfaceElevated,
+                    focusedBorderColor = theme.primary,
                     unfocusedBorderColor = GlassBorder
                 ),
                 modifier = Modifier.fillMaxWidth()
@@ -113,12 +112,13 @@ fun SearchScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Filter Chips
+            // Filter Chips (100% Local categories)
             val filters = listOf(
                 SearchFilter.ALL to "Todo",
-                SearchFilter.LOCAL to "Dispositivo",
-                SearchFilter.ONLINE to "En Línea (CC)",
-                SearchFilter.DOWNLOADED to "Descargadas"
+                SearchFilter.TITLES to "Canciones",
+                SearchFilter.ARTISTS to "Artistas",
+                SearchFilter.ALBUMS to "Álbumes",
+                SearchFilter.FOLDERS to "Carpetas"
             )
 
             LazyRow(
@@ -131,16 +131,16 @@ fun SearchScreen(
                         onClick = { onFilterChange(filter) },
                         label = { Text(title, style = MaterialTheme.typography.labelSmall) },
                         colors = FilterChipDefaults.filterChipColors(
-                            containerColor = DarkSurfaceElevated,
-                            selectedContainerColor = PrimaryViolet,
+                            containerColor = theme.surfaceElevated,
+                            selectedContainerColor = theme.primary,
                             labelColor = TextSecondary,
-                            selectedLabelColor = TextPrimary
+                            selectedLabelColor = theme.background
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             enabled = true,
                             selected = isSelected,
                             borderColor = GlassBorder,
-                            selectedBorderColor = PrimaryViolet
+                            selectedBorderColor = theme.primary
                         ),
                         shape = RoundedCornerShape(20.dp)
                     )
@@ -149,11 +149,11 @@ fun SearchScreen(
         }
 
         // Search Results List
-        if (searchQuery.isEmpty()) {
+        if (searchQuery.isBlank()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(bottom = 120.dp),
+                    .padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -161,16 +161,18 @@ fun SearchScreen(
                         imageVector = Icons.Rounded.Search,
                         contentDescription = null,
                         tint = TextMuted,
-                        modifier = Modifier.size(54.dp)
+                        modifier = Modifier.size(64.dp)
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                     Text(
-                        text = "Escribe para buscar",
+                        text = "Busca en tu música local",
                         style = MaterialTheme.typography.titleMedium,
-                        color = TextPrimary
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextSecondary
                     )
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Encuentra tus pistas locales y música libre",
+                        text = "Filtra por título, artista, álbum o carpeta",
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextMuted
                     )
@@ -180,38 +182,48 @@ fun SearchScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(bottom = 120.dp),
+                    .padding(32.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = "No se encontraron coincidencias para \"$searchQuery\"",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextMuted
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "Sin resultados para \"$searchQuery\"",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Intenta buscar por otro término o cambiar el filtro",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextMuted
+                    )
+                }
             }
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 120.dp)
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 item {
                     Text(
                         text = "${searchResults.size} resultados encontrados",
                         style = MaterialTheme.typography.labelSmall,
                         color = TextMuted,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
                     )
                 }
 
                 items(searchResults) { song ->
+                    val isCurrent = playbackState.currentSong?.id == song.id
                     SongListItem(
                         song = song,
-                        isPlaying = playbackState.isPlaying,
-                        isCurrentSong = playbackState.currentSong?.id == song.id,
+                        isPlaying = isCurrent && playbackState.isPlaying,
+                        isCurrentSong = isCurrent,
                         onClick = { onSongClick(song) },
                         onDownloadClick = { onDownloadClick(song) },
                         onAddToPlaylistClick = { onAddToPlaylistClick(song) },
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                        modifier = Modifier.padding(vertical = 3.dp)
                     )
                 }
             }

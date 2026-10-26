@@ -4,11 +4,9 @@ import com.francisco.franmusic.data.local.db.FranMusicDatabase
 import com.francisco.franmusic.data.local.db.entity.PlaylistEntity
 import com.francisco.franmusic.data.local.db.entity.PlaylistSongCrossRef
 import com.francisco.franmusic.data.local.db.entity.SongEntity
-import com.francisco.franmusic.data.source.LegalDemoMediaSource
 import com.francisco.franmusic.data.source.LocalMediaSource
 import com.francisco.franmusic.domain.model.Album
 import com.francisco.franmusic.domain.model.Artist
-import com.francisco.franmusic.domain.model.DownloadInfo
 import com.francisco.franmusic.domain.model.Folder
 import com.francisco.franmusic.domain.model.Playlist
 import com.francisco.franmusic.domain.model.Song
@@ -17,46 +15,27 @@ import com.francisco.franmusic.domain.repository.SearchFilter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
 
 class MusicRepositoryImpl(
     private val database: FranMusicDatabase,
     private val localSource: LocalMediaSource,
-    private val onlineSource: LegalDemoMediaSource,
     private val externalScope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) : MusicRepository {
 
     private val songDao = database.songDao()
     private val playlistDao = database.playlistDao()
-    private val downloadDao = database.downloadDao()
-
-    private val _isOfflineMode = MutableStateFlow(false)
-    override val isOfflineMode: StateFlow<Boolean> = _isOfflineMode.asStateFlow()
 
     init {
         externalScope.launch {
             refreshLocalSongs()
-            refreshOnlineSongs()
         }
     }
 
-    override val songs: Flow<List<Song>> = combine(
-        songDao.getAllSongs(),
-        _isOfflineMode
-    ) { allEntities, offlineOnly ->
-        val mapped = allEntities.map { it.toDomain() }
-        if (offlineOnly) {
-            mapped.filter { !it.isOnline || it.isDownloaded }
-        } else {
-            mapped
-        }
+    override val songs: Flow<List<Song>> = songDao.getAllSongs().map { list ->
+        list.map { it.toDomain() }
     }
 
     override val albums: Flow<List<Album>> = songs.map { songList ->
@@ -115,14 +94,6 @@ class MusicRepositoryImpl(
         list.map { it.toDomain() }
     }
 
-    override val downloads: Flow<List<DownloadInfo>> = downloadDao.getAllDownloads().map { list ->
-        list.map { it.toDomain() }
-    }
-
-    override fun setOfflineMode(enabled: Boolean) {
-        _isOfflineMode.value = enabled
-    }
-
     override suspend fun refreshLocalSongs() = withContext(Dispatchers.IO) {
         try {
             val localSongs = localSource.getSongs()
@@ -135,45 +106,15 @@ class MusicRepositoryImpl(
         }
     }
 
-    override suspend fun refreshOnlineSongs() = withContext(Dispatchers.IO) {
-        try {
-            val onlineSongs = onlineSource.getSongs()
-            val existing = mutableMapOf<String, SongEntity>()
-            onlineSongs.forEach { song ->
-                val fromDb = songDao.getSongById(song.id)
-                if (fromDb != null) {
-                    existing[song.id] = fromDb
-                }
-            }
-
-            val entities = onlineSongs.map { onlineSong ->
-                val dbMatch = existing[onlineSong.id]
-                val updatedSong = if (dbMatch != null) {
-                    onlineSong.copy(
-                        isDownloaded = dbMatch.isDownloaded,
-                        localFilePath = dbMatch.localFilePath,
-                        isFavorite = dbMatch.isFavorite,
-                        playCount = dbMatch.playCount
-                    )
-                } else {
-                    onlineSong
-                }
-                SongEntity.fromDomain(updatedSong)
-            }
-            songDao.insertSongs(entities)
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-    }
-
     override fun searchSongs(query: String, filter: SearchFilter): Flow<List<Song>> {
         return songDao.searchSongs(query).map { entities ->
             val domainList = entities.map { it.toDomain() }
             when (filter) {
                 SearchFilter.ALL -> domainList
-                SearchFilter.LOCAL -> domainList.filter { !it.isOnline }
-                SearchFilter.ONLINE -> domainList.filter { it.isOnline }
-                SearchFilter.DOWNLOADED -> domainList.filter { it.isDownloaded }
+                SearchFilter.TITLES -> domainList.filter { it.title.contains(query, ignoreCase = true) }
+                SearchFilter.ARTISTS -> domainList.filter { it.artist.contains(query, ignoreCase = true) }
+                SearchFilter.ALBUMS -> domainList.filter { it.album.contains(query, ignoreCase = true) }
+                SearchFilter.FOLDERS -> domainList.filter { it.folderName.contains(query, ignoreCase = true) }
             }
         }
     }
@@ -234,25 +175,5 @@ class MusicRepositoryImpl(
         return playlistDao.getSongsForPlaylist(playlistId).map { list ->
             list.map { it.toDomain() }
         }
-    }
-
-    override suspend fun updateDownloadStatus(
-        songId: String,
-        isDownloaded: Boolean,
-        filePath: String?
-    ) = withContext(Dispatchers.IO) {
-        songDao.updateDownloadStatus(songId, isDownloaded, filePath)
-    }
-
-    override suspend fun deleteDownload(songId: String) = withContext(Dispatchers.IO) {
-        val download = downloadDao.getDownloadBySongId(songId)
-        if (download?.localFilePath != null) {
-            val file = File(download.localFilePath)
-            if (file.exists()) {
-                file.delete()
-            }
-        }
-        downloadDao.deleteDownloadById(songId)
-        songDao.updateDownloadStatus(songId, false, null)
     }
 }

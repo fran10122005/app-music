@@ -103,10 +103,9 @@ app/src/main/java/com/francisco/franmusic/
 │   │           ├── PlaylistEntity.kt    # Entidad Room de playlist
 │   │           └── PlaylistSongCrossRef.kt
 │   ├── source/
-│   │   ├── LocalMediaSource.kt          # Lector de MediaStore y extracción de rutas de carpetas
-│   │   └── LegalDemoMediaSource.kt      # Fuente de catálogo de demostración
+│   │   └── LocalMediaSource.kt          # Lector de MediaStore y extracción de rutas de carpetas
 │   └── repository/
-│       └── MusicRepositoryImpl.kt       # Implementación reactiva de repositorio
+│       └── MusicRepositoryImpl.kt       # Implementación reactiva de repositorio 100% local
 ├── playback/
 │   ├── PlayerManager.kt                 # Singleton mediador de MediaController, cola y estado
 │   ├── EqualizerManager.kt              # Conexión con Equalizer y BassBoost nativos de Android

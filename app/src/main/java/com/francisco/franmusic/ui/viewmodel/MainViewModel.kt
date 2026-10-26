@@ -6,11 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.francisco.franmusic.data.local.ThemePreferences
 import com.francisco.franmusic.data.local.db.FranMusicDatabase
 import com.francisco.franmusic.data.repository.MusicRepositoryImpl
-import com.francisco.franmusic.data.source.LegalDemoMediaSource
 import com.francisco.franmusic.data.source.LocalMediaSource
 import com.francisco.franmusic.domain.model.Album
 import com.francisco.franmusic.domain.model.Artist
-import com.francisco.franmusic.domain.model.DownloadInfo
 import com.francisco.franmusic.domain.model.Folder
 import com.francisco.franmusic.domain.model.Playlist
 import com.francisco.franmusic.domain.model.Song
@@ -54,12 +52,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val database = FranMusicDatabase.getInstance(application)
     private val localSource = LocalMediaSource(application)
-    private val onlineSource = LegalDemoMediaSource()
 
     val repository: MusicRepository = MusicRepositoryImpl(
         database = database,
         localSource = localSource,
-        onlineSource = onlineSource,
         externalScope = viewModelScope
     )
 

@@ -15,9 +15,9 @@ class SearchAndQueueLogicTest {
             artist = "Beethoven",
             album = "Piano Masterpieces",
             durationMs = 315000L,
-            mediaUri = "https://example.com/moonlight.mp3",
-            isOnline = true,
-            isDownloaded = true
+            mediaUri = "content://media/external/audio/1",
+            folderPath = "/storage/Music/Classics",
+            folderName = "Classics"
         ),
         Song(
             id = "2",
@@ -25,9 +25,9 @@ class SearchAndQueueLogicTest {
             artist = "Chopin",
             album = "Romantic Classics",
             durationMs = 272000L,
-            mediaUri = "https://example.com/nocturne.mp3",
-            isOnline = true,
-            isDownloaded = false
+            mediaUri = "content://media/external/audio/2",
+            folderPath = "/storage/Music/Classics",
+            folderName = "Classics"
         ),
         Song(
             id = "3",
@@ -36,8 +36,8 @@ class SearchAndQueueLogicTest {
             album = "Acoustic Sessions",
             durationMs = 180000L,
             mediaUri = "content://media/external/audio/3",
-            isOnline = false,
-            isDownloaded = true
+            folderPath = "/storage/Music/Acoustic",
+            folderName = "Acoustic"
         )
     )
 
@@ -54,16 +54,18 @@ class SearchAndQueueLogicTest {
     }
 
     @Test
-    fun `test search filter by local, online, and downloaded`() {
-        val localFiltered = sampleSongs.filter { !it.isOnline }
-        assertEquals(1, localFiltered.size)
-        assertEquals("My Local Guitar", localFiltered.first().title)
+    fun `test search filter by titles, artists, albums, and folders`() {
+        val titleMatch = sampleSongs.filter { it.title.contains("Guitar", ignoreCase = true) }
+        assertEquals(1, titleMatch.size)
 
-        val onlineFiltered = sampleSongs.filter { it.isOnline }
-        assertEquals(2, onlineFiltered.size)
+        val artistMatch = sampleSongs.filter { it.artist.contains("Beethoven", ignoreCase = true) }
+        assertEquals(1, artistMatch.size)
 
-        val downloadedFiltered = sampleSongs.filter { it.isDownloaded }
-        assertEquals(2, downloadedFiltered.size)
+        val albumMatch = sampleSongs.filter { it.album.contains("Romantic", ignoreCase = true) }
+        assertEquals(1, albumMatch.size)
+
+        val folderMatch = sampleSongs.filter { it.folderName.contains("Classics", ignoreCase = true) }
+        assertEquals(2, folderMatch.size)
     }
 
     @Test

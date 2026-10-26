@@ -4,10 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.francisco.franmusic.data.local.db.dao.DownloadDao
 import com.francisco.franmusic.data.local.db.dao.PlaylistDao
 import com.francisco.franmusic.data.local.db.dao.SongDao
-import com.francisco.franmusic.data.local.db.entity.DownloadEntity
 import com.francisco.franmusic.data.local.db.entity.PlaylistEntity
 import com.francisco.franmusic.data.local.db.entity.PlaylistSongCrossRef
 import com.francisco.franmusic.data.local.db.entity.SongEntity
@@ -16,8 +14,7 @@ import com.francisco.franmusic.data.local.db.entity.SongEntity
     entities = [
         SongEntity::class,
         PlaylistEntity::class,
-        PlaylistSongCrossRef::class,
-        DownloadEntity::class
+        PlaylistSongCrossRef::class
     ],
     version = 2,
     exportSchema = false
@@ -25,7 +22,6 @@ import com.francisco.franmusic.data.local.db.entity.SongEntity
 abstract class FranMusicDatabase : RoomDatabase() {
     abstract fun songDao(): SongDao
     abstract fun playlistDao(): PlaylistDao
-    abstract fun downloadDao(): DownloadDao
 
     companion object {
         @Volatile
