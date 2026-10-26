@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.auramusic.app"
+    namespace = "com.francisco.franmusic"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.auramusic.app"
+        applicationId = "com.francisco.franmusic"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
