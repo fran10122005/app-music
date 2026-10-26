@@ -71,6 +71,14 @@ Este documento sirve como **fuente única de verdad (Ground Truth)** del proyect
 - Gestión de `AudioFocus` (pausa automática ante llamadas telefónicas) y evento `BECOMING_NOISY` (pausa inmediata al desconectar auriculares o apagar Bluetooth).
 - WakeLock local (`C.WAKE_MODE_LOCAL`) para evitar que el CPU suspenda la reproducción de audio local.
 
+### 8. 🎯 Cola Persistente y Restauración de Sesión (Fase 1)
+- `PlaybackStateStore.kt` implementado con **DataStore Preferences**:
+  - Persiste: `currentSongId`, `queueIds`, `positionMs`, `shuffleEnabled`, `repeatMode` y `lastUpdated`.
+  - Guardado inteligente de posición cada 5 segundos durante la reproducción para no desgastar batería.
+  - Guardado en cambios de pista, pausa y en `onTaskRemoved` / `onDestroy` del servicio multimedia.
+  - Al reabrir la aplicación, si la opción está activada (configurable desde Ajustes), reconstruye la cola y la pista activa posicionada exactamente donde se dejó, en estado pausado lista para play.
+  - El estado sobrevive a cierres forzados de la app y reinicios del teléfono.
+
 ---
 
 ## 🏛️ Estructura del Código Fuente
@@ -112,7 +120,7 @@ app/src/main/java/com/francisco/franmusic/
 │   ├── SleepTimerManager.kt             # Gestor del temporizador de apagado y cuenta regresiva
 │   ├── LyricsManager.kt                 # Motor de letras (.lrc, LRCLIB y Gemini AI)
 │   ├── PlaybackUiState.kt               # Estado reactivo del reproductor
-│   └── Media3Cache.kt                   # Caché de audio
+│   └── PlaybackStateStore.kt            # Persistencia de sesión con DataStore Preferences
 ├── service/
 │   └── PlaybackService.kt               # MediaSessionService para segundo plano y notificación
 └── ui/

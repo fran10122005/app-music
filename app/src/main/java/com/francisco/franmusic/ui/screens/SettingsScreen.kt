@@ -24,6 +24,7 @@ import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -34,6 +35,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -57,8 +60,10 @@ import com.francisco.franmusic.ui.theme.TextSecondary
 fun SettingsScreen(
     currentTheme: AppThemeStyle,
     geminiApiKey: String,
+    restoreSessionEnabled: Boolean = true,
     onThemeSelect: (AppThemeStyle) -> Unit,
     onSaveApiKey: (String) -> Unit,
+    onToggleRestoreSession: (Boolean) -> Unit = {},
     onOpenEqualizer: () -> Unit,
     onOpenSleepTimer: () -> Unit,
     onRescanLibrary: () -> Unit
@@ -159,6 +164,66 @@ fun SettingsScreen(
                             color = TextMuted
                         )
                     }
+                }
+            }
+        }
+
+        // Session Restoration Section
+        item {
+            Text(
+                text = "SESIÓN Y REPRODUCCIÓN",
+                style = MaterialTheme.typography.labelSmall,
+                color = theme.primaryLight,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.2.sp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = theme.surfaceElevated,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Restore,
+                            contentDescription = null,
+                            tint = theme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "Restaurar última sesión al abrir",
+                                fontWeight = FontWeight.Medium,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "Recupera la última canción, cola y posición en pausa",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextMuted
+                            )
+                        }
+                    }
+
+                    Switch(
+                        checked = restoreSessionEnabled,
+                        onCheckedChange = onToggleRestoreSession,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = TextPrimary,
+                            checkedTrackColor = theme.primary
+                        )
+                    )
                 }
             }
         }

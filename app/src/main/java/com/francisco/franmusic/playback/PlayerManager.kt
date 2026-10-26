@@ -17,9 +17,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -45,9 +47,13 @@ class PlayerManager private constructor(private val context: Context) {
 
     private val scope = CoroutineScope(Dispatchers.Main + Job())
     private var progressJob: Job? = null
+    private var lastPersistedPositionSec: Long = -1L
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
+
+    private val stateStore = PlaybackStateStore.getInstance(context)
+    val restoreSessionEnabled: Flow<Boolean> = stateStore.restoreSessionEnabledFlow
 
     private val _uiState = MutableStateFlow(PlaybackUiState())
     val uiState: StateFlow<PlaybackUiState> = _uiState.asStateFlow()
@@ -56,6 +62,7 @@ class PlayerManager private constructor(private val context: Context) {
 
     val sleepTimerManager = SleepTimerManager(scope) {
         controller?.pause()
+        saveCurrentSession()
     }
     val sleepTimerState: StateFlow<SleepTimerState> = sleepTimerManager.state
 
@@ -88,6 +95,7 @@ class PlayerManager private constructor(private val context: Context) {
                     startProgressTracker()
                 } else {
                     stopProgressTracker()
+                    saveCurrentSession()
                 }
             }
 
@@ -110,6 +118,7 @@ class PlayerManager private constructor(private val context: Context) {
                         currentPositionMs = 0L
                     )
                 }
+                saveCurrentSession()
             }
 
             override fun onPlayerError(error: PlaybackException) {
@@ -157,6 +166,13 @@ class PlayerManager private constructor(private val context: Context) {
                             durationMs = dur
                         )
                     }
+
+                    // Save position every ~5 seconds to save battery and persist accurately
+                    val currentFiveSec = pos / 5000L
+                    if (currentFiveSec != lastPersistedPositionSec) {
+                        lastPersistedPositionSec = currentFiveSec
+                        stateStore.updatePosition(pos)
+                    }
                 }
                 delay(400)
             }
@@ -189,6 +205,7 @@ class PlayerManager private constructor(private val context: Context) {
                 errorMessage = null
             )
         }
+        saveCurrentSession()
     }
 
     fun togglePlayPause() {
@@ -198,12 +215,14 @@ class PlayerManager private constructor(private val context: Context) {
         } else {
             player.play()
         }
+        saveCurrentSession()
     }
 
     fun seekTo(positionMs: Long) {
         val player = controller ?: return
         player.seekTo(positionMs)
         _uiState.update { it.copy(currentPositionMs = positionMs) }
+        scope.launch { stateStore.updatePosition(positionMs) }
     }
 
     fun seekToProgress(fraction: Float) {
@@ -235,6 +254,7 @@ class PlayerManager private constructor(private val context: Context) {
         val newShuffle = !player.shuffleModeEnabled
         player.shuffleModeEnabled = newShuffle
         _uiState.update { it.copy(shuffleMode = newShuffle) }
+        saveCurrentSession()
     }
 
     fun toggleRepeat() {
@@ -246,6 +266,7 @@ class PlayerManager private constructor(private val context: Context) {
         }
         player.repeatMode = nextMode
         _uiState.update { it.copy(repeatMode = nextMode) }
+        saveCurrentSession()
     }
 
     fun startSleepTimer(minutes: Int) {
@@ -260,6 +281,74 @@ class PlayerManager private constructor(private val context: Context) {
         sleepTimerManager.cancel()
     }
 
+    fun setRestoreSessionEnabled(enabled: Boolean) {
+        scope.launch {
+            stateStore.setRestoreSessionEnabled(enabled)
+        }
+    }
+
+    fun saveCurrentSession() {
+        scope.launch {
+            val currentSong = _uiState.value.currentSong
+            val pos = controller?.currentPosition ?: _uiState.value.currentPositionMs
+            val queueIds = playlistQueue.map { it.id }
+            val shuffle = controller?.shuffleModeEnabled ?: _uiState.value.shuffleMode
+            val repeat = controller?.repeatMode ?: _uiState.value.repeatMode
+            if (currentSong != null && queueIds.isNotEmpty()) {
+                stateStore.saveSession(
+                    currentSongId = currentSong.id,
+                    queueIds = queueIds,
+                    positionMs = pos,
+                    shuffleEnabled = shuffle,
+                    repeatMode = repeat
+                )
+            }
+        }
+    }
+
+    suspend fun restoreSessionIfEnabled(allAvailableSongs: List<Song>) {
+        if (allAvailableSongs.isEmpty()) return
+        val isRestoreEnabled = stateStore.restoreSessionEnabledFlow.first()
+        if (!isRestoreEnabled) return
+        if (controller?.isPlaying == true || playlistQueue.isNotEmpty()) return
+
+        val session = stateStore.sessionFlow.first()
+        if (!session.isValid) return
+
+        val idMap = allAvailableSongs.associateBy { it.id }
+        val restoredQueue = session.queueIds.mapNotNull { idMap[it] }
+        val currentSong = session.currentSongId?.let { idMap[it] }
+
+        if (restoredQueue.isNotEmpty() && currentSong != null) {
+            playlistQueue.clear()
+            playlistQueue.addAll(restoredQueue)
+
+            controller?.let { player ->
+                val mediaItems = restoredQueue.map { it.toMediaItem() }
+                val targetIndex = restoredQueue.indexOfFirst { it.id == currentSong.id }.coerceAtLeast(0)
+
+                player.setMediaItems(mediaItems, targetIndex, session.positionMs)
+                player.shuffleModeEnabled = session.shuffleEnabled
+                player.repeatMode = session.repeatMode
+                player.playWhenReady = false // Paused on restoration
+                player.prepare()
+
+                _uiState.update {
+                    it.copy(
+                        currentSong = currentSong,
+                        currentQueueIndex = targetIndex,
+                        currentPositionMs = session.positionMs,
+                        durationMs = currentSong.durationMs,
+                        shuffleMode = session.shuffleEnabled,
+                        repeatMode = session.repeatMode,
+                        queue = restoredQueue,
+                        isPlaying = false
+                    )
+                }
+            }
+        }
+    }
+
     private fun Song.toMediaItem(): MediaItem {
         val metadata = MediaMetadata.Builder()
             .setTitle(title)
@@ -268,7 +357,7 @@ class PlayerManager private constructor(private val context: Context) {
             .setArtworkUri(artworkUri?.let { Uri.parse(it) })
             .build()
 
-        val uri = if (isDownloaded && localFilePath != null) {
+        val uri = if (localFilePath != null) {
             val file = File(localFilePath)
             if (file.exists()) Uri.fromFile(file) else Uri.parse(mediaUri)
         } else {

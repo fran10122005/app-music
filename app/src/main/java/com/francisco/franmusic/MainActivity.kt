@@ -107,6 +107,7 @@ fun MainAppScreen(viewModel: MainViewModel) {
     val sleepTimerState by viewModel.sleepTimerState.collectAsState()
     val equalizerState by viewModel.equalizerState.collectAsState()
     val lyricsState by viewModel.lyricsState.collectAsState()
+    val restoreSessionEnabled by viewModel.restoreSessionEnabled.collectAsState()
 
     val isNowPlayingExpanded by viewModel.isNowPlayingExpanded.collectAsState()
     val selectedAlbum by viewModel.selectedAlbum.collectAsState()
@@ -251,8 +252,10 @@ fun MainAppScreen(viewModel: MainViewModel) {
                     SettingsScreen(
                         currentTheme = currentTheme,
                         geminiApiKey = viewModel.getGeminiApiKey(),
+                        restoreSessionEnabled = restoreSessionEnabled,
                         onThemeSelect = { viewModel.setTheme(it) },
                         onSaveApiKey = { viewModel.setGeminiApiKey(it) },
+                        onToggleRestoreSession = { viewModel.setRestoreSessionEnabled(it) },
                         onOpenEqualizer = { showEqualizerSheet = true },
                         onOpenSleepTimer = { showSleepTimerDialog = true },
                         onRescanLibrary = { viewModel.rescanLibrary() }

@@ -72,6 +72,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val sleepTimerState: StateFlow<SleepTimerState> = playerManager.sleepTimerState
     val equalizerState: StateFlow<EqualizerUiState> = equalizerManager.uiState
     val lyricsState: StateFlow<LyricsUiState> = lyricsManager.uiState
+    val restoreSessionEnabled: StateFlow<Boolean> = playerManager.restoreSessionEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
     // Navigation state
     private val _currentScreen = MutableStateFlow(AppScreen.HOME)
@@ -82,6 +84,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isNowPlayingExpanded = MutableStateFlow(false)
     val isNowPlayingExpanded: StateFlow<Boolean> = _isNowPlayingExpanded.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            songs.collect { songList ->
+                if (songList.isNotEmpty() && playbackState.value.currentSong == null) {
+                    playerManager.restoreSessionIfEnabled(songList)
+                }
+            }
+        }
+    }
 
     // Data streams
     val songs: StateFlow<List<Song>> = repository.songs
@@ -222,6 +234,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun cancelSleepTimer() {
         playerManager.cancelSleepTimer()
+    }
+
+    fun setRestoreSessionEnabled(enabled: Boolean) {
+        playerManager.setRestoreSessionEnabled(enabled)
     }
 
     // Equalizer

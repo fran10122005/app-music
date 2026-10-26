@@ -80,7 +80,13 @@ class PlaybackService : MediaSessionService() {
         return mediaSession
     }
 
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        com.francisco.franmusic.playback.PlayerManager.getInstance(this).saveCurrentSession()
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onDestroy() {
+        com.francisco.franmusic.playback.PlayerManager.getInstance(this).saveCurrentSession()
         mediaSession?.run {
             player.release()
             release()
