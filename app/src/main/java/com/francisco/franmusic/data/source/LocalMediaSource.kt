@@ -139,6 +139,95 @@ class LocalMediaSource(
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            // Fallback query with basic columns if extended projection failed
+            try {
+                val basicProjection = arrayOf(
+                    MediaStore.Audio.Media._ID,
+                    MediaStore.Audio.Media.TITLE,
+                    MediaStore.Audio.Media.ARTIST,
+                    MediaStore.Audio.Media.ALBUM,
+                    MediaStore.Audio.Media.DURATION,
+                    MediaStore.Audio.Media.TRACK,
+                    MediaStore.Audio.Media.ALBUM_ID,
+                    MediaStore.Audio.Media.MIME_TYPE,
+                    MediaStore.Audio.Media.DATA
+                )
+                context.contentResolver.query(
+                    collection,
+                    basicProjection,
+                    selection,
+                    null,
+                    sortOrder
+                )?.use { cursor ->
+                    val idCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+                    val titleCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+                    val artistCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+                    val albumCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM)
+                    val durCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+                    val trackCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TRACK)
+                    val albumIdCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
+                    val mimeCol = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
+                    val dataCol = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
+
+                    while (cursor.moveToNext()) {
+                        val id = cursor.getLong(idCol)
+                        val title = cursor.getString(titleCol) ?: "Desconocido"
+                        val artist = cursor.getString(artistCol) ?: "Artista desconocido"
+                        val album = cursor.getString(albumCol) ?: "Álbum desconocido"
+                        val duration = cursor.getLong(durCol)
+                        val trackNumber = cursor.getInt(trackCol)
+                        val albumId = cursor.getLong(albumIdCol)
+                        val mimeType = cursor.getString(mimeCol) ?: "audio/mpeg"
+                        val dataPath = if (dataCol >= 0) cursor.getString(dataCol) else null
+
+                        val contentUri = ContentUris.withAppendedId(
+                            MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
+                            id
+                        )
+
+                        val artworkUri = ContentUris.withAppendedId(
+                            Uri.parse("content://media/external/audio/albumart"),
+                            albumId
+                        ).toString()
+
+                        var folderPath = ""
+                        var folderName = "Música"
+                        if (dataPath != null) {
+                            val file = File(dataPath)
+                            val parent = file.parentFile
+                            if (parent != null) {
+                                folderPath = parent.absolutePath
+                                folderName = parent.name
+                            }
+                        }
+
+                        songList.add(
+                            Song(
+                                id = "local_$id",
+                                title = title,
+                                artist = artist,
+                                album = album,
+                                durationMs = duration,
+                                trackNumber = trackNumber,
+                                artworkUri = artworkUri,
+                                mediaUri = contentUri.toString(),
+                                isOnline = false,
+                                isDownloaded = true,
+                                localFilePath = dataPath ?: contentUri.toString(),
+                                mimeType = mimeType,
+                                sourceId = sourceId,
+                                folderPath = folderPath,
+                                folderName = folderName,
+                                genre = null,
+                                year = null,
+                                composer = null
+                            )
+                        )
+                    }
+                }
+            } catch (e2: Exception) {
+                e2.printStackTrace()
+            }
         }
 
         songList

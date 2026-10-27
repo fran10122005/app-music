@@ -91,16 +91,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isNowPlayingExpanded = MutableStateFlow(false)
     val isNowPlayingExpanded: StateFlow<Boolean> = _isNowPlayingExpanded.asStateFlow()
 
-    init {
-        viewModelScope.launch {
-            songs.collect { songList ->
-                if (songList.isNotEmpty() && playbackState.value.currentSong == null) {
-                    playerManager.restoreSessionIfEnabled(songList)
-                }
-            }
-        }
-    }
-
     // Data streams
     val songs: StateFlow<List<Song>> = repository.songs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -131,6 +121,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val mostPlayedSongs: StateFlow<List<Song>> = repository.mostPlayedSongs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    init {
+        viewModelScope.launch {
+            try {
+                repository.songs.collect { songList ->
+                    if (songList.isNotEmpty() && playbackState.value.currentSong == null) {
+                        playerManager.restoreSessionIfEnabled(songList)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
 
     // Search state
     private val _searchQuery = MutableStateFlow("")

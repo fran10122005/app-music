@@ -118,6 +118,8 @@ fun MainAppScreen(viewModel: MainViewModel) {
     val genres by viewModel.genres.collectAsState()
     val yearGroups by viewModel.yearGroups.collectAsState()
     val composers by viewModel.composers.collectAsState()
+    val favoriteSongs by viewModel.favoriteSongs.collectAsState()
+    val mostPlayedSongs by viewModel.mostPlayedSongs.collectAsState()
 
     val isNowPlayingExpanded by viewModel.isNowPlayingExpanded.collectAsState()
     val selectedAlbum by viewModel.selectedAlbum.collectAsState()
@@ -218,8 +220,8 @@ fun MainAppScreen(viewModel: MainViewModel) {
                 AppScreen.HOME -> {
                     HomeScreen(
                         songs = songs,
-                        favoriteSongs = viewModel.favoriteSongs.collectAsState().value,
-                        mostPlayedSongs = viewModel.mostPlayedSongs.collectAsState().value,
+                        favoriteSongs = favoriteSongs,
+                        mostPlayedSongs = mostPlayedSongs,
                         playbackState = playbackState,
                         isOfflineMode = true,
                         onToggleOfflineMode = { },
@@ -240,8 +242,8 @@ fun MainAppScreen(viewModel: MainViewModel) {
                         yearGroups = yearGroups,
                         composers = composers,
                         playlists = playlists,
-                        favoriteSongs = viewModel.favoriteSongs.collectAsState().value,
-                        mostPlayedSongs = viewModel.mostPlayedSongs.collectAsState().value,
+                        favoriteSongs = favoriteSongs,
+                        mostPlayedSongs = mostPlayedSongs,
                         playbackState = playbackState,
                         onTabSelected = { viewModel.setLibraryTab(it) },
                         onSongClick = { viewModel.playSong(it) },
@@ -522,8 +524,8 @@ fun MainAppScreen(viewModel: MainViewModel) {
     smartListType?.let { listType ->
         val theme = LocalAppThemeStyle.current
         val smartSongs = when (listType) {
-            "favorites" -> viewModel.favoriteSongs.collectAsState().value
-            "mostPlayed" -> viewModel.mostPlayedSongs.collectAsState().value
+            "favorites" -> favoriteSongs
+            "mostPlayed" -> mostPlayedSongs
             else -> emptyList()
         }
         val title = when (listType) {

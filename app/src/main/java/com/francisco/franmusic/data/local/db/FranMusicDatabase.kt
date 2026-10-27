@@ -18,7 +18,7 @@ import com.francisco.franmusic.data.local.db.entity.SongEntity
         PlaylistEntity::class,
         PlaylistSongCrossRef::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class FranMusicDatabase : RoomDatabase() {
@@ -31,9 +31,35 @@ abstract class FranMusicDatabase : RoomDatabase() {
 
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                db.execSQL("ALTER TABLE songs ADD COLUMN genre TEXT DEFAULT NULL")
-                db.execSQL("ALTER TABLE songs ADD COLUMN year INTEGER DEFAULT NULL")
-                db.execSQL("ALTER TABLE songs ADD COLUMN composer TEXT DEFAULT NULL")
+                try {
+                    db.execSQL("ALTER TABLE songs ADD COLUMN genre TEXT DEFAULT NULL")
+                } catch (_: Exception) {}
+                try {
+                    db.execSQL("ALTER TABLE songs ADD COLUMN year INTEGER DEFAULT NULL")
+                } catch (_: Exception) {}
+                try {
+                    db.execSQL("ALTER TABLE songs ADD COLUMN composer TEXT DEFAULT NULL")
+                } catch (_: Exception) {}
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                try {
+                    db.execSQL("ALTER TABLE songs ADD COLUMN lyrics TEXT DEFAULT NULL")
+                } catch (_: Exception) {}
+                try {
+                    db.execSQL("ALTER TABLE songs ADD COLUMN aiLyricsInsight TEXT DEFAULT NULL")
+                } catch (_: Exception) {}
+                try {
+                    db.execSQL("ALTER TABLE songs ADD COLUMN genre TEXT DEFAULT NULL")
+                } catch (_: Exception) {}
+                try {
+                    db.execSQL("ALTER TABLE songs ADD COLUMN year INTEGER DEFAULT NULL")
+                } catch (_: Exception) {}
+                try {
+                    db.execSQL("ALTER TABLE songs ADD COLUMN composer TEXT DEFAULT NULL")
+                } catch (_: Exception) {}
             }
         }
 
@@ -43,8 +69,9 @@ abstract class FranMusicDatabase : RoomDatabase() {
                     context.applicationContext,
                     FranMusicDatabase::class.java,
                     "FranMusic.db"
-                ).addMigrations(MIGRATION_2_3)
+                ).addMigrations(MIGRATION_2_3, MIGRATION_3_4)
                  .fallbackToDestructiveMigration()
+                 .fallbackToDestructiveMigrationOnDowngrade()
                  .build()
                 INSTANCE = instance
                 instance
