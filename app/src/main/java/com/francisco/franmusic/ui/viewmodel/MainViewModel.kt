@@ -9,9 +9,12 @@ import com.francisco.franmusic.data.repository.MusicRepositoryImpl
 import com.francisco.franmusic.data.source.LocalMediaSource
 import com.francisco.franmusic.domain.model.Album
 import com.francisco.franmusic.domain.model.Artist
+import com.francisco.franmusic.domain.model.Composer
 import com.francisco.franmusic.domain.model.Folder
+import com.francisco.franmusic.domain.model.Genre
 import com.francisco.franmusic.domain.model.Playlist
 import com.francisco.franmusic.domain.model.Song
+import com.francisco.franmusic.domain.model.YearGroup
 import com.francisco.franmusic.domain.repository.MusicRepository
 import com.francisco.franmusic.domain.repository.SearchFilter
 import com.francisco.franmusic.playback.EqualizerManager
@@ -44,6 +47,9 @@ enum class LibraryTab {
     FOLDERS,
     ALBUMS,
     ARTISTS,
+    GENRES,
+    YEARS,
+    COMPOSERS,
     PLAYLISTS
 }
 
@@ -108,6 +114,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val folders: StateFlow<List<Folder>> = repository.folders
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val genres: StateFlow<List<Genre>> = repository.genres
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val yearGroups: StateFlow<List<YearGroup>> = repository.yearGroups
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val composers: StateFlow<List<Composer>> = repository.composers
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     val playlists: StateFlow<List<Playlist>> = repository.playlists
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -142,6 +157,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _selectedPlaylist = MutableStateFlow<Playlist?>(null)
     val selectedPlaylist: StateFlow<Playlist?> = _selectedPlaylist.asStateFlow()
+
+    private val _selectedGenre = MutableStateFlow<Genre?>(null)
+    val selectedGenre: StateFlow<Genre?> = _selectedGenre.asStateFlow()
+
+    private val _selectedYearGroup = MutableStateFlow<YearGroup?>(null)
+    val selectedYearGroup: StateFlow<YearGroup?> = _selectedYearGroup.asStateFlow()
+
+    private val _selectedComposer = MutableStateFlow<Composer?>(null)
+    val selectedComposer: StateFlow<Composer?> = _selectedComposer.asStateFlow()
+
+    private val _editingSong = MutableStateFlow<Song?>(null)
+    val editingSong: StateFlow<Song?> = _editingSong.asStateFlow()
 
     fun navigateTo(screen: AppScreen) {
         _currentScreen.value = screen
@@ -319,5 +346,58 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun selectPlaylist(playlist: Playlist?) {
         _selectedPlaylist.value = playlist
+    }
+
+    fun selectGenre(genre: Genre?) {
+        _selectedGenre.value = genre
+    }
+
+    fun selectYearGroup(yearGroup: YearGroup?) {
+        _selectedYearGroup.value = yearGroup
+    }
+
+    fun selectComposer(composer: Composer?) {
+        _selectedComposer.value = composer
+    }
+
+    fun setEditingSong(song: Song?) {
+        _editingSong.value = song
+    }
+
+    fun updateSongMetadata(
+        songId: String,
+        title: String,
+        artist: String,
+        album: String,
+        year: Int?,
+        genre: String?,
+        composer: String?,
+        trackNumber: Int
+    ) {
+        viewModelScope.launch {
+            repository.updateSongMetadata(songId, title, artist, album, year, genre, composer, trackNumber)
+            _editingSong.value = null
+        }
+    }
+
+    fun cleanMissingFiles(onComplete: (Int) -> Unit) {
+        viewModelScope.launch {
+            val count = repository.cleanMissingFiles()
+            onComplete(count)
+        }
+    }
+
+    fun detectDuplicates(onComplete: (List<List<Song>>) -> Unit) {
+        viewModelScope.launch {
+            val duplicates = repository.detectDuplicates()
+            onComplete(duplicates)
+        }
+    }
+
+    fun deleteSongs(songIds: List<String>, onComplete: () -> Unit) {
+        viewModelScope.launch {
+            repository.deleteSongs(songIds)
+            onComplete()
+        }
     }
 }

@@ -7,17 +7,22 @@ import com.francisco.franmusic.data.local.db.entity.SongEntity
 import com.francisco.franmusic.data.source.LocalMediaSource
 import com.francisco.franmusic.domain.model.Album
 import com.francisco.franmusic.domain.model.Artist
+import com.francisco.franmusic.domain.model.Composer
 import com.francisco.franmusic.domain.model.Folder
+import com.francisco.franmusic.domain.model.Genre
 import com.francisco.franmusic.domain.model.Playlist
 import com.francisco.franmusic.domain.model.Song
+import com.francisco.franmusic.domain.model.YearGroup
 import com.francisco.franmusic.domain.repository.MusicRepository
 import com.francisco.franmusic.domain.repository.SearchFilter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 class MusicRepositoryImpl(
     private val database: FranMusicDatabase,
@@ -82,6 +87,42 @@ class MusicRepositoryImpl(
             .sortedBy { it.name.lowercase() }
     }
 
+    override val genres: Flow<List<Genre>> = songs.map { songList ->
+        songList.groupBy { it.genre?.takeIf { g -> g.isNotBlank() } ?: "Sin clasificar" }
+            .map { (genreName, genreSongs) ->
+                Genre(
+                    name = genreName,
+                    songCount = genreSongs.size,
+                    artworkUri = genreSongs.firstOrNull { it.artworkUri != null }?.artworkUri
+                )
+            }
+            .sortedWith(compareBy({ it.name == "Sin clasificar" }, { it.name.lowercase() }))
+    }
+
+    override val yearGroups: Flow<List<YearGroup>> = songs.map { songList ->
+        songList.groupBy { it.year?.takeIf { y -> y > 0 } ?: 0 }
+            .map { (yr, yrSongs) ->
+                val decade = if (yr == 0) "Sin clasificar" else "${(yr / 10) * 10}s"
+                YearGroup(
+                    year = yr,
+                    songCount = yrSongs.size,
+                    decade = decade
+                )
+            }
+            .sortedWith(compareBy({ it.year == 0 }, { -it.year }))
+    }
+
+    override val composers: Flow<List<Composer>> = songs.map { songList ->
+        songList.groupBy { it.composer?.takeIf { c -> c.isNotBlank() } ?: "Desconocido" }
+            .map { (composerName, composerSongs) ->
+                Composer(
+                    name = composerName,
+                    songCount = composerSongs.size
+                )
+            }
+            .sortedWith(compareBy({ it.name == "Desconocido" }, { it.name.lowercase() }))
+    }
+
     override val favoriteSongs: Flow<List<Song>> = songDao.getFavoriteSongs().map { list ->
         list.map { it.toDomain() }
     }
@@ -137,6 +178,30 @@ class MusicRepositoryImpl(
         }
     }
 
+    override fun getSongsByGenre(genreName: String): Flow<List<Song>> {
+        return if (genreName == "Sin clasificar") {
+            songDao.getUnclassifiedGenreSongs().map { list -> list.map { it.toDomain() } }
+        } else {
+            songDao.getSongsByGenre(genreName).map { list -> list.map { it.toDomain() } }
+        }
+    }
+
+    override fun getSongsByYear(year: Int): Flow<List<Song>> {
+        return if (year == 0) {
+            songDao.getUnknownYearSongs().map { list -> list.map { it.toDomain() } }
+        } else {
+            songDao.getSongsByYear(year).map { list -> list.map { it.toDomain() } }
+        }
+    }
+
+    override fun getSongsByComposer(composerName: String): Flow<List<Song>> {
+        return if (composerName == "Desconocido") {
+            songDao.getUnknownComposerSongs().map { list -> list.map { it.toDomain() } }
+        } else {
+            songDao.getSongsByComposer(composerName).map { list -> list.map { it.toDomain() } }
+        }
+    }
+
     override suspend fun getSongById(songId: String): Song? = withContext(Dispatchers.IO) {
         songDao.getSongById(songId)?.toDomain()
     }
@@ -151,6 +216,61 @@ class MusicRepositoryImpl(
 
     override suspend fun saveLyrics(songId: String, lyrics: String, insight: String?) = withContext(Dispatchers.IO) {
         songDao.updateLyrics(songId, lyrics, insight)
+    }
+
+    override suspend fun updateSongMetadata(
+        songId: String,
+        title: String,
+        artist: String,
+        album: String,
+        year: Int?,
+        genre: String?,
+        composer: String?,
+        trackNumber: Int
+    ) = withContext(Dispatchers.IO) {
+        songDao.updateMetadata(
+            songId = songId,
+            title = title.trim(),
+            artist = artist.trim(),
+            album = album.trim(),
+            year = year,
+            genre = genre?.trim(),
+            composer = composer?.trim(),
+            trackNumber = trackNumber
+        )
+    }
+
+    override suspend fun cleanMissingFiles(): Int = withContext(Dispatchers.IO) {
+        val allSongs = songDao.getAllSongs().first()
+        val missingIds = allSongs.filter { songEntity ->
+            val path = songEntity.localFilePath
+            if (path.isNullOrBlank()) {
+                false
+            } else if (path.startsWith("content://")) {
+                false
+            } else {
+                !File(path).exists()
+            }
+        }.map { it.id }
+
+        if (missingIds.isNotEmpty()) {
+            songDao.deleteSongsByIds(missingIds)
+        }
+        missingIds.size
+    }
+
+    override suspend fun detectDuplicates(): List<List<Song>> = withContext(Dispatchers.IO) {
+        val allSongs = songDao.getAllSongs().first().map { it.toDomain() }
+        allSongs.groupBy { "${it.title.trim().lowercase()}::${it.artist.trim().lowercase()}" }
+            .filter { it.value.size > 1 }
+            .values
+            .toList()
+    }
+
+    override suspend fun deleteSongs(songIds: List<String>) = withContext(Dispatchers.IO) {
+        if (songIds.isNotEmpty()) {
+            songDao.deleteSongsByIds(songIds)
+        }
     }
 
     override suspend fun createPlaylist(name: String): Long = withContext(Dispatchers.IO) {

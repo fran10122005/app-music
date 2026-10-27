@@ -20,6 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CleaningServices
+import androidx.compose.material.icons.rounded.FindReplace
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Palette
@@ -66,7 +68,9 @@ fun SettingsScreen(
     onToggleRestoreSession: (Boolean) -> Unit = {},
     onOpenEqualizer: () -> Unit,
     onOpenSleepTimer: () -> Unit,
-    onRescanLibrary: () -> Unit
+    onRescanLibrary: () -> Unit,
+    onCleanMissingFiles: () -> Unit = {},
+    onDetectDuplicates: () -> Unit = {}
 ) {
     val theme = LocalAppThemeStyle.current
     var apiKeyInput by remember(geminiApiKey) { mutableStateOf(geminiApiKey) }
@@ -391,6 +395,81 @@ fun SettingsScreen(
                         ) {
                             Text("Guardar Clave", color = theme.background, fontWeight = FontWeight.Bold)
                         }
+                    }
+                }
+            }
+        }
+
+        // Library Maintenance Section
+        item {
+            Text(
+                text = "MANTENIMIENTO DE BIBLIOTECA",
+                style = MaterialTheme.typography.labelSmall,
+                color = theme.primaryLight,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.2.sp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Clean Missing Files
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { onCleanMissingFiles() },
+                    colors = CardDefaults.cardColors(containerColor = theme.surfaceElevated)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Icon(
+                            imageVector = Icons.Rounded.CleaningServices,
+                            contentDescription = null,
+                            tint = theme.primary,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Limpiar",
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "Elimina archivos no encontrados",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextMuted
+                        )
+                    }
+                }
+
+                // Detect Duplicates
+                Card(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(16.dp))
+                        .clickable { onDetectDuplicates() },
+                    colors = CardDefaults.cardColors(containerColor = theme.surfaceElevated)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Icon(
+                            imageVector = Icons.Rounded.FindReplace,
+                            contentDescription = null,
+                            tint = theme.accent,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Duplicados",
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "Detecta y elimina repetidos",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextMuted
+                        )
                     }
                 }
             }

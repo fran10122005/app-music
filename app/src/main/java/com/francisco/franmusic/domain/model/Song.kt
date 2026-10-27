@@ -19,7 +19,10 @@ data class Song(
     val isFavorite: Boolean = false,
     val playCount: Int = 0,
     val lyrics: String? = null,
-    val aiLyricsInsight: String? = null
+    val aiLyricsInsight: String? = null,
+    val genre: String? = null,
+    val year: Int? = null,
+    val composer: String? = null
 ) {
     val formattedDuration: String
         get() {

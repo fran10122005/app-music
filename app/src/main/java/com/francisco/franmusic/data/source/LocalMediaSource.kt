@@ -28,7 +28,7 @@ class LocalMediaSource(
             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
         }
 
-        val projection = arrayOf(
+        val projectionList = mutableListOf(
             MediaStore.Audio.Media._ID,
             MediaStore.Audio.Media.TITLE,
             MediaStore.Audio.Media.ARTIST,
@@ -37,8 +37,14 @@ class LocalMediaSource(
             MediaStore.Audio.Media.TRACK,
             MediaStore.Audio.Media.ALBUM_ID,
             MediaStore.Audio.Media.MIME_TYPE,
-            MediaStore.Audio.Media.DATA
+            MediaStore.Audio.Media.DATA,
+            MediaStore.Audio.Media.YEAR,
+            MediaStore.Audio.Media.COMPOSER
         )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            projectionList.add(MediaStore.Audio.Media.GENRE)
+        }
+        val projection = projectionList.toTypedArray()
 
         val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} > 10000"
         val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
@@ -60,6 +66,11 @@ class LocalMediaSource(
                 val albumIdColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ALBUM_ID)
                 val mimeTypeColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.MIME_TYPE)
                 val dataColumn = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
+                val yearColumn = cursor.getColumnIndex(MediaStore.Audio.Media.YEAR)
+                val composerColumn = cursor.getColumnIndex(MediaStore.Audio.Media.COMPOSER)
+                val genreColumn = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    cursor.getColumnIndex(MediaStore.Audio.Media.GENRE)
+                } else -1
 
                 while (cursor.moveToNext()) {
                     val id = cursor.getLong(idColumn)
@@ -71,6 +82,17 @@ class LocalMediaSource(
                     val albumId = cursor.getLong(albumIdColumn)
                     val mimeType = cursor.getString(mimeTypeColumn) ?: "audio/mpeg"
                     val dataPath = if (dataColumn >= 0) cursor.getString(dataColumn) else null
+
+                    val rawYear = if (yearColumn >= 0 && !cursor.isNull(yearColumn)) cursor.getInt(yearColumn) else null
+                    val year = if (rawYear != null && rawYear > 0) rawYear else null
+
+                    val rawComposer = if (composerColumn >= 0 && !cursor.isNull(composerColumn)) cursor.getString(composerColumn) else null
+                    val composer = if (rawComposer.isNullOrBlank() || rawComposer == "<unknown>") null else rawComposer.trim()
+
+                    var genre: String? = if (genreColumn >= 0 && !cursor.isNull(genreColumn)) cursor.getString(genreColumn)?.trim() else null
+                    if (genre.isNullOrBlank() || genre == "<unknown>") {
+                        genre = null
+                    }
 
                     val contentUri = ContentUris.withAppendedId(
                         MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
@@ -107,7 +129,10 @@ class LocalMediaSource(
                             mimeType = mimeType,
                             sourceId = sourceId,
                             folderPath = folderPath,
-                            folderName = folderName
+                            folderName = folderName,
+                            genre = genre,
+                            year = year,
+                            composer = composer
                         )
                     )
                 }

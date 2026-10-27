@@ -20,9 +20,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Album
+import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DateRange
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.FolderSpecial
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Button
@@ -45,13 +48,17 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.francisco.franmusic.domain.model.Album
 import com.francisco.franmusic.domain.model.Artist
+import com.francisco.franmusic.domain.model.Composer
 import com.francisco.franmusic.domain.model.Folder
+import com.francisco.franmusic.domain.model.Genre
 import com.francisco.franmusic.domain.model.Playlist
 import com.francisco.franmusic.domain.model.Song
+import com.francisco.franmusic.domain.model.YearGroup
 import com.francisco.franmusic.playback.PlaybackUiState
 import com.francisco.franmusic.ui.components.SongListItem
 import com.francisco.franmusic.ui.theme.DarkBackground
 import com.francisco.franmusic.ui.theme.DarkSurfaceElevated
+import com.francisco.franmusic.ui.theme.LocalAppThemeStyle
 import com.francisco.franmusic.ui.theme.PrimaryViolet
 import com.francisco.franmusic.ui.theme.TextMuted
 import com.francisco.franmusic.ui.theme.TextPrimary
@@ -415,6 +422,351 @@ fun PlaylistDetailSheet(
                     ) {
                         Text(
                             text = "No hay canciones en esta playlist",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextMuted
+                        )
+                    }
+                }
+            } else {
+                items(songs) { song ->
+                    SongListItem(
+                        song = song,
+                        isPlaying = playbackState.isPlaying,
+                        isCurrentSong = playbackState.currentSong?.id == song.id,
+                        onClick = { onSongClick(song) },
+                        onDownloadClick = { onDownloadClick(song) },
+                        onAddToPlaylistClick = { onAddToPlaylistClick(song) },
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GenreDetailSheet(
+    genre: Genre,
+    songs: List<Song>,
+    playbackState: PlaybackUiState,
+    onDismiss: () -> Unit,
+    onPlayAllClick: () -> Unit,
+    onSongClick: (Song) -> Unit,
+    onDownloadClick: (Song) -> Unit,
+    onAddToPlaylistClick: (Song) -> Unit
+) {
+    val theme = LocalAppThemeStyle.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = theme.background
+    ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 60.dp)
+        ) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(68.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(theme.surfaceElevated),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Category,
+                            contentDescription = null,
+                            tint = theme.primary,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = genre.name,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "${songs.size} canciones en este género",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary
+                        )
+                    }
+
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Rounded.Close, contentDescription = "Cerrar", tint = TextMuted)
+                    }
+                }
+
+                if (songs.isNotEmpty()) {
+                    Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+                        Button(
+                            onClick = onPlayAllClick,
+                            colors = ButtonDefaults.buttonColors(containerColor = theme.primary),
+                            shape = RoundedCornerShape(20.dp),
+                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+                        ) {
+                            Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Reproducir todo", fontWeight = FontWeight.Bold, color = TextPrimary)
+                        }
+                    }
+                }
+            }
+
+            if (songs.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 40.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No hay canciones disponibles en este género",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextMuted
+                        )
+                    }
+                }
+            } else {
+                items(songs) { song ->
+                    SongListItem(
+                        song = song,
+                        isPlaying = playbackState.isPlaying,
+                        isCurrentSong = playbackState.currentSong?.id == song.id,
+                        onClick = { onSongClick(song) },
+                        onDownloadClick = { onDownloadClick(song) },
+                        onAddToPlaylistClick = { onAddToPlaylistClick(song) },
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun YearDetailSheet(
+    yearGroup: YearGroup,
+    songs: List<Song>,
+    playbackState: PlaybackUiState,
+    onDismiss: () -> Unit,
+    onPlayAllClick: () -> Unit,
+    onSongClick: (Song) -> Unit,
+    onDownloadClick: (Song) -> Unit,
+    onAddToPlaylistClick: (Song) -> Unit
+) {
+    val theme = LocalAppThemeStyle.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = theme.background
+    ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 60.dp)
+        ) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(68.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(theme.surfaceElevated),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.DateRange,
+                            contentDescription = null,
+                            tint = theme.primary,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = yearGroup.displayName,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = if (yearGroup.year > 0) "${yearGroup.decade} • ${songs.size} canciones" else "${songs.size} canciones sin año",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary
+                        )
+                    }
+
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Rounded.Close, contentDescription = "Cerrar", tint = TextMuted)
+                    }
+                }
+
+                if (songs.isNotEmpty()) {
+                    Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+                        Button(
+                            onClick = onPlayAllClick,
+                            colors = ButtonDefaults.buttonColors(containerColor = theme.primary),
+                            shape = RoundedCornerShape(20.dp),
+                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+                        ) {
+                            Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Reproducir todo", fontWeight = FontWeight.Bold, color = TextPrimary)
+                        }
+                    }
+                }
+            }
+
+            if (songs.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 40.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No hay canciones para este año",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextMuted
+                        )
+                    }
+                }
+            } else {
+                items(songs) { song ->
+                    SongListItem(
+                        song = song,
+                        isPlaying = playbackState.isPlaying,
+                        isCurrentSong = playbackState.currentSong?.id == song.id,
+                        onClick = { onSongClick(song) },
+                        onDownloadClick = { onDownloadClick(song) },
+                        onAddToPlaylistClick = { onAddToPlaylistClick(song) },
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ComposerDetailSheet(
+    composer: Composer,
+    songs: List<Song>,
+    playbackState: PlaybackUiState,
+    onDismiss: () -> Unit,
+    onPlayAllClick: () -> Unit,
+    onSongClick: (Song) -> Unit,
+    onDownloadClick: (Song) -> Unit,
+    onAddToPlaylistClick: (Song) -> Unit
+) {
+    val theme = LocalAppThemeStyle.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = theme.background
+    ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 60.dp)
+        ) {
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(68.dp)
+                            .clip(CircleShape)
+                            .background(theme.surfaceElevated),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.MusicNote,
+                            contentDescription = null,
+                            tint = theme.primary,
+                            modifier = Modifier.size(36.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = composer.name,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "${songs.size} canciones compuestas",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary
+                        )
+                    }
+
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Rounded.Close, contentDescription = "Cerrar", tint = TextMuted)
+                    }
+                }
+
+                if (songs.isNotEmpty()) {
+                    Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+                        Button(
+                            onClick = onPlayAllClick,
+                            colors = ButtonDefaults.buttonColors(containerColor = theme.primary),
+                            shape = RoundedCornerShape(20.dp),
+                            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+                        ) {
+                            Icon(Icons.Rounded.PlayArrow, contentDescription = null, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Reproducir todo", fontWeight = FontWeight.Bold, color = TextPrimary)
+                        }
+                    }
+                }
+            }
+
+            if (songs.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 40.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No hay canciones registradas para este compositor",
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextMuted
                         )

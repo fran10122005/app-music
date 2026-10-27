@@ -32,6 +32,24 @@ interface SongDao {
     @Query("SELECT * FROM songs WHERE folderPath = :folderPath ORDER BY title ASC")
     fun getSongsByFolder(folderPath: String): Flow<List<SongEntity>>
 
+    @Query("SELECT * FROM songs WHERE genre = :genre ORDER BY title ASC")
+    fun getSongsByGenre(genre: String): Flow<List<SongEntity>>
+
+    @Query("SELECT * FROM songs WHERE genre IS NULL OR genre = '' OR genre = 'Desconocido' ORDER BY title ASC")
+    fun getUnclassifiedGenreSongs(): Flow<List<SongEntity>>
+
+    @Query("SELECT * FROM songs WHERE year = :year ORDER BY title ASC")
+    fun getSongsByYear(year: Int): Flow<List<SongEntity>>
+
+    @Query("SELECT * FROM songs WHERE year IS NULL OR year = 0 ORDER BY title ASC")
+    fun getUnknownYearSongs(): Flow<List<SongEntity>>
+
+    @Query("SELECT * FROM songs WHERE composer = :composer ORDER BY title ASC")
+    fun getSongsByComposer(composer: String): Flow<List<SongEntity>>
+
+    @Query("SELECT * FROM songs WHERE composer IS NULL OR composer = '' OR composer = 'Desconocido' ORDER BY title ASC")
+    fun getUnknownComposerSongs(): Flow<List<SongEntity>>
+
     @Query("SELECT * FROM songs WHERE isFavorite = 1 ORDER BY title ASC")
     fun getFavoriteSongs(): Flow<List<SongEntity>>
 
@@ -40,6 +58,12 @@ interface SongDao {
 
     @Query("SELECT * FROM songs WHERE title LIKE '%' || :query || '%' OR artist LIKE '%' || :query || '%' OR album LIKE '%' || :query || '%'")
     fun searchSongs(query: String): Flow<List<SongEntity>>
+
+    @Query("UPDATE songs SET title = :title, artist = :artist, album = :album, year = :year, genre = :genre, composer = :composer, trackNumber = :trackNumber WHERE id = :songId")
+    suspend fun updateMetadata(songId: String, title: String, artist: String, album: String, year: Int?, genre: String?, composer: String?, trackNumber: Int)
+
+    @Query("DELETE FROM songs WHERE id IN (:ids)")
+    suspend fun deleteSongsByIds(ids: List<String>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSongs(songs: List<SongEntity>)

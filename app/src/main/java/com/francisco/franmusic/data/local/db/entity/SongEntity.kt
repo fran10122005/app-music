@@ -1,5 +1,6 @@
 package com.francisco.franmusic.data.local.db.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.francisco.franmusic.domain.model.Song
@@ -26,6 +27,12 @@ data class SongEntity(
     val playCount: Int = 0,
     val lyrics: String? = null,
     val aiLyricsInsight: String? = null,
+    @ColumnInfo(defaultValue = "NULL")
+    val genre: String? = null,
+    @ColumnInfo(defaultValue = "NULL")
+    val year: Int? = null,
+    @ColumnInfo(defaultValue = "NULL")
+    val composer: String? = null,
     val addedAt: Long = System.currentTimeMillis()
 ) {
     fun toDomain(): Song = Song(
@@ -47,7 +54,10 @@ data class SongEntity(
         isFavorite = isFavorite,
         playCount = playCount,
         lyrics = lyrics,
-        aiLyricsInsight = aiLyricsInsight
+        aiLyricsInsight = aiLyricsInsight,
+        genre = genre,
+        year = year,
+        composer = composer
     )
 
     companion object {
@@ -70,7 +80,10 @@ data class SongEntity(
             isFavorite = song.isFavorite,
             playCount = song.playCount,
             lyrics = song.lyrics,
-            aiLyricsInsight = song.aiLyricsInsight
+            aiLyricsInsight = song.aiLyricsInsight,
+            genre = song.genre,
+            year = song.year,
+            composer = song.composer
         )
     }
 }

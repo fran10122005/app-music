@@ -56,6 +56,8 @@ import com.francisco.franmusic.ui.theme.TextSecondary
 @Composable
 fun HomeScreen(
     songs: List<Song>,
+    favoriteSongs: List<Song> = emptyList(),
+    mostPlayedSongs: List<Song> = emptyList(),
     playbackState: PlaybackUiState,
     isOfflineMode: Boolean,
     onToggleOfflineMode: () -> Unit,
@@ -220,6 +222,88 @@ fun HomeScreen(
                 onAddToPlaylistClick = { onAddToPlaylistClick(song) },
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
             )
+        }
+
+        // Favorites Section
+        if (favoriteSongs.isNotEmpty()) {
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "❤️ Mis Favoritas",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "${favoriteSongs.size} canciones",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                }
+            }
+            item {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    items(favoriteSongs.take(10)) { song ->
+                        FeaturedSongCard(
+                            song = song,
+                            isPlaying = playbackState.isPlaying && playbackState.currentSong?.id == song.id,
+                            onClick = { onSongClick(song) }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+
+        // Most Played Section
+        if (mostPlayedSongs.isNotEmpty()) {
+            item {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "🔥 Más Escuchadas",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "${mostPlayedSongs.size} canciones",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary
+                    )
+                }
+            }
+            item {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    items(mostPlayedSongs.take(10)) { song ->
+                        FeaturedSongCard(
+                            song = song,
+                            isPlaying = playbackState.isPlaying && playbackState.currentSong?.id == song.id,
+                            onClick = { onSongClick(song) }
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
         }
     }
 }
