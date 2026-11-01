@@ -19,15 +19,11 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.Psychology
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -61,7 +57,7 @@ fun LyricsSheet(
     lyricsState: LyricsUiState,
     currentPositionMs: Long,
     onDismiss: () -> Unit,
-    onGenerateWithAi: () -> Unit,
+    onReloadLyrics: () -> Unit = {},
     onSeekToTime: (Long) -> Unit
 ) {
     val theme = LocalAppThemeStyle.current
@@ -120,14 +116,14 @@ fun LyricsSheet(
                     )
                 }
 
-                // AI Generator action button
+                // Recargar letras locales
                 IconButton(
-                    onClick = onGenerateWithAi,
+                    onClick = onReloadLyrics,
                     enabled = !lyricsState.isLoading
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.AutoAwesome,
-                        contentDescription = "Generar con IA",
+                        imageVector = Icons.Rounded.Refresh,
+                        contentDescription = "Recargar letra",
                         tint = theme.primary
                     )
                 }
@@ -170,44 +166,6 @@ fun LyricsSheet(
                 }
             }
 
-            // AI Insight Card if present
-            if (!lyricsData?.aiInsight.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(10.dp))
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = theme.surfaceElevated),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Psychology,
-                            contentDescription = null,
-                            tint = theme.primary,
-                            modifier = Modifier.size(22.dp)
-                        )
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = "Significado según IA:",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = theme.primaryLight
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = lyricsData?.aiInsight.orEmpty(),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = TextSecondary,
-                                lineHeight = 18.sp
-                            )
-                        }
-                    }
-                }
-            }
-
             Spacer(modifier = Modifier.height(16.dp))
 
             // Content
@@ -224,7 +182,7 @@ fun LyricsSheet(
                         CircularProgressIndicator(color = theme.primary)
                         Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "Buscando y generando letra inteligente...",
+                            text = "Cargando archivo de letras local...",
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextSecondary
                         )
@@ -270,33 +228,33 @@ fun LyricsSheet(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "Sin letra disponible",
+                            text = "Sin letra local disponible",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "No se detectó archivo .lrc en tu carpeta. Puedes generar la letra y el significado al instante usando la IA de FranMusic.",
+                            text = "Para visualizar la letra sincronizada offline, coloca un archivo con el mismo nombre y extensión .lrc o .txt en la misma carpeta física de este audio.",
                             style = MaterialTheme.typography.bodyMedium,
                             textAlign = TextAlign.Center,
                             color = TextSecondary
                         )
                         Spacer(modifier = Modifier.height(24.dp))
                         Button(
-                            onClick = onGenerateWithAi,
+                            onClick = onReloadLyrics,
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = theme.primary)
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.AutoAwesome,
+                                imageVector = Icons.Rounded.Refresh,
                                 contentDescription = null,
                                 tint = theme.background,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "✨ Generar Letra con IA",
+                                text = "Volver a buscar archivo .lrc",
                                 color = theme.background,
                                 fontWeight = FontWeight.Bold
                             )

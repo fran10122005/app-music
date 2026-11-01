@@ -155,7 +155,7 @@ fun FolderDetailSheet(
                 }
             }
 
-            items(songs) { song ->
+            items(songs, key = { it.id }) { song ->
                 SongListItem(
                     song = song,
                     isPlaying = playbackState.isPlaying,
@@ -250,7 +250,7 @@ fun AlbumDetailSheet(
                 }
             }
 
-            items(songs) { song ->
+            items(songs, key = { it.id }) { song ->
                 SongListItem(
                     song = song,
                     isPlaying = playbackState.isPlaying,
@@ -331,7 +331,7 @@ fun ArtistDetailSheet(
                 }
             }
 
-            items(songs) { song ->
+            items(songs, key = { it.id }) { song ->
                 SongListItem(
                     song = song,
                     isPlaying = playbackState.isPlaying,
@@ -428,7 +428,7 @@ fun PlaylistDetailSheet(
                     }
                 }
             } else {
-                items(songs) { song ->
+                items(songs, key = { it.id }) { song ->
                     SongListItem(
                         song = song,
                         isPlaying = playbackState.isPlaying,
@@ -543,7 +543,7 @@ fun GenreDetailSheet(
                     }
                 }
             } else {
-                items(songs) { song ->
+                items(songs, key = { it.id }) { song ->
                     SongListItem(
                         song = song,
                         isPlaying = playbackState.isPlaying,
@@ -658,7 +658,7 @@ fun YearDetailSheet(
                     }
                 }
             } else {
-                items(songs) { song ->
+                items(songs, key = { it.id }) { song ->
                     SongListItem(
                         song = song,
                         isPlaying = playbackState.isPlaying,
@@ -773,7 +773,7 @@ fun ComposerDetailSheet(
                     }
                 }
             } else {
-                items(songs) { song ->
+                items(songs, key = { it.id }) { song ->
                     SongListItem(
                         song = song,
                         isPlaying = playbackState.isPlaying,

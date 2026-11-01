@@ -10,6 +10,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -46,12 +47,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.Image
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.francisco.franmusic.domain.model.Song
+import com.francisco.franmusic.ui.components.DuplicatesSheet
 import com.francisco.franmusic.ui.components.EqualizerSheet
 import com.francisco.franmusic.ui.components.LyricsSheet
 import com.francisco.franmusic.ui.components.MiniPlayer
@@ -114,6 +120,7 @@ fun MainAppScreen(viewModel: MainViewModel) {
     val equalizerState by viewModel.equalizerState.collectAsState()
     val lyricsState by viewModel.lyricsState.collectAsState()
     val restoreSessionEnabled by viewModel.restoreSessionEnabled.collectAsState()
+    val minDurationSeconds by viewModel.minDurationSeconds.collectAsState()
 
     val genres by viewModel.genres.collectAsState()
     val yearGroups by viewModel.yearGroups.collectAsState()
@@ -136,6 +143,7 @@ fun MainAppScreen(viewModel: MainViewModel) {
     var songToAddToPlaylist by remember { mutableStateOf<Song?>(null) }
     var maintenanceResultMessage by remember { mutableStateOf<String?>(null) }
     var smartListType by remember { mutableStateOf<String?>(null) }
+    var duplicateGroupsState by remember { mutableStateOf<List<List<Song>>?>(null) }
 
     // Request permissions
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -216,6 +224,18 @@ fun MainAppScreen(viewModel: MainViewModel) {
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            // Marca de agua sutil de FranMusic de fondo (elegante y fija)
+            Image(
+                painter = painterResource(id = R.drawable.franmusic_watermark),
+                contentDescription = null,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth(0.82f)
+                    .aspectRatio(1f)
+                    .alpha(0.06f),
+                contentScale = ContentScale.Fit
+            )
+
             when (currentScreen) {
                 AppScreen.HOME -> {
                     HomeScreen(
@@ -223,11 +243,14 @@ fun MainAppScreen(viewModel: MainViewModel) {
                         favoriteSongs = favoriteSongs,
                         mostPlayedSongs = mostPlayedSongs,
                         playbackState = playbackState,
-                        isOfflineMode = true,
-                        onToggleOfflineMode = { },
                         onSongClick = { viewModel.playSong(it) },
-                        onDownloadClick = { },
-                        onAddToPlaylistClick = { songToAddToPlaylist = it }
+                        onAddToPlaylistClick = { songToAddToPlaylist = it },
+                        onPlayAllShuffle = {
+                            if (songs.isNotEmpty()) {
+                                val shuffled = songs.shuffled()
+                                viewModel.playSong(shuffled.first(), shuffled)
+                            }
+                        }
                     )
                 }
 
@@ -279,10 +302,10 @@ fun MainAppScreen(viewModel: MainViewModel) {
                 AppScreen.SETTINGS -> {
                     SettingsScreen(
                         currentTheme = currentTheme,
-                        geminiApiKey = viewModel.getGeminiApiKey(),
                         restoreSessionEnabled = restoreSessionEnabled,
+                        minDurationSeconds = minDurationSeconds,
                         onThemeSelect = { viewModel.setTheme(it) },
-                        onSaveApiKey = { viewModel.setGeminiApiKey(it) },
+                        onMinDurationChange = { viewModel.setMinDurationSeconds(it) },
                         onToggleRestoreSession = { viewModel.setRestoreSessionEnabled(it) },
                         onOpenEqualizer = { showEqualizerSheet = true },
                         onOpenSleepTimer = { showSleepTimerDialog = true },
@@ -298,10 +321,11 @@ fun MainAppScreen(viewModel: MainViewModel) {
                         onDetectDuplicates = {
                             viewModel.detectDuplicates { groups ->
                                 val totalDupes = groups.sumOf { it.size - 1 }
-                                maintenanceResultMessage = if (totalDupes > 0)
-                                    "⚠️ Se detectaron $totalDupes canciones duplicadas en ${groups.size} grupos. Revisa tu biblioteca."
-                                else
-                                    "✅ No se detectaron duplicados en tu biblioteca."
+                                if (totalDupes > 0) {
+                                    duplicateGroupsState = groups
+                                } else {
+                                    maintenanceResultMessage = "✅ No se detectaron duplicados en tu biblioteca."
+                                }
                             }
                         }
                     )
@@ -325,18 +349,19 @@ fun MainAppScreen(viewModel: MainViewModel) {
             onOpenLyricsClick = { showLyricsSheet = true },
             onOpenEqualizerClick = { showEqualizerSheet = true },
             onOpenSleepTimerClick = { showSleepTimerDialog = true },
-            onAddToPlaylistClick = { songToAddToPlaylist = it }
+            onAddToPlaylistClick = { songToAddToPlaylist = it },
+            onDeleteSong = { song, deleteFile -> viewModel.deleteSong(song, deleteFile) }
         )
     }
 
-    // Lyrics Modal Sheet (with AI generator)
+    // Lyrics Modal Sheet (Local .lrc / offline)
     if (showLyricsSheet && playbackState.currentSong != null) {
         LyricsSheet(
             song = playbackState.currentSong!!,
             lyricsState = lyricsState,
             currentPositionMs = playbackState.currentPositionMs,
             onDismiss = { showLyricsSheet = false },
-            onGenerateWithAi = { playbackState.currentSong?.let { viewModel.generateAiLyrics(it) } },
+            onReloadLyrics = { playbackState.currentSong?.let { viewModel.loadLyricsForSong(it) } },
             onSeekToTime = { viewModel.seekToPositionMs(it) }
         )
     }
@@ -516,6 +541,30 @@ fun MainAppScreen(viewModel: MainViewModel) {
                 TextButton(onClick = { maintenanceResultMessage = null }) {
                     Text("Entendido", color = LocalAppThemeStyle.current.primary)
                 }
+            }
+        )
+    }
+
+    // Interactive Duplicates Sheet
+    duplicateGroupsState?.let { groups ->
+        DuplicatesSheet(
+            duplicateGroups = groups,
+            onDismiss = { duplicateGroupsState = null },
+            onDeleteSingleSong = { song ->
+                viewModel.deleteSong(song, deletePhysicalFile = true) {
+                    viewModel.detectDuplicates { updated ->
+                        duplicateGroupsState = updated.ifEmpty { null }
+                    }
+                }
+            },
+            onAutoCleanDuplicates = { allGroups ->
+                allGroups.forEach { group ->
+                    group.drop(1).forEach { dupSong ->
+                        viewModel.deleteSong(dupSong, deletePhysicalFile = true)
+                    }
+                }
+                duplicateGroupsState = null
+                maintenanceResultMessage = "✅ Se eliminaron las copias duplicadas automáticamente."
             }
         )
     }

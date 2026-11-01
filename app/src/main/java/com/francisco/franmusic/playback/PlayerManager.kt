@@ -48,6 +48,7 @@ class PlayerManager private constructor(private val context: Context) {
     private val scope = CoroutineScope(Dispatchers.Main + Job())
     private var progressJob: Job? = null
     private var lastPersistedPositionSec: Long = -1L
+    @Volatile private var sessionRestoreInProgress = false
 
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var controller: MediaController? = null
@@ -308,54 +309,73 @@ class PlayerManager private constructor(private val context: Context) {
 
     suspend fun restoreSessionIfEnabled(allAvailableSongs: List<Song>) {
         if (allAvailableSongs.isEmpty()) return
-        val isRestoreEnabled = stateStore.restoreSessionEnabledFlow.first()
-        if (!isRestoreEnabled) return
-        if (controller?.isPlaying == true || playlistQueue.isNotEmpty()) return
+        if (sessionRestoreInProgress) return
+        sessionRestoreInProgress = true
 
-        val session = stateStore.sessionFlow.first()
-        if (!session.isValid) return
+        try {
+            val isRestoreEnabled = stateStore.restoreSessionEnabledFlow.first()
+            if (!isRestoreEnabled) return
+            if (controller?.isPlaying == true || playlistQueue.isNotEmpty()) return
 
-        val idMap = allAvailableSongs.associateBy { it.id }
-        val restoredQueue = session.queueIds.mapNotNull { idMap[it] }
-        val currentSong = session.currentSongId?.let { idMap[it] }
+            val session = stateStore.sessionFlow.first()
+            if (!session.isValid) return
 
-        if (restoredQueue.isNotEmpty() && currentSong != null) {
-            playlistQueue.clear()
-            playlistQueue.addAll(restoredQueue)
+            val idMap = allAvailableSongs.associateBy { it.id }
+            val restoredQueue = session.queueIds.mapNotNull { idMap[it] }
+            val currentSong = session.currentSongId?.let { idMap[it] }
 
-            controller?.let { player ->
-                val mediaItems = restoredQueue.map { it.toMediaItem() }
-                val targetIndex = restoredQueue.indexOfFirst { it.id == currentSong.id }.coerceAtLeast(0)
+            if (restoredQueue.isNotEmpty() && currentSong != null) {
+                playlistQueue.clear()
+                playlistQueue.addAll(restoredQueue)
 
-                player.setMediaItems(mediaItems, targetIndex, session.positionMs)
-                player.shuffleModeEnabled = session.shuffleEnabled
-                player.repeatMode = session.repeatMode
-                player.playWhenReady = false // Paused on restoration
-                player.prepare()
+                controller?.let { player ->
+                    val mediaItems = restoredQueue.map { it.toMediaItem() }
+                    val targetIndex = restoredQueue.indexOfFirst { it.id == currentSong.id }.coerceAtLeast(0)
 
-                _uiState.update {
-                    it.copy(
-                        currentSong = currentSong,
-                        currentQueueIndex = targetIndex,
-                        currentPositionMs = session.positionMs,
-                        durationMs = currentSong.durationMs,
-                        shuffleMode = session.shuffleEnabled,
-                        repeatMode = session.repeatMode,
-                        queue = restoredQueue,
-                        isPlaying = false
-                    )
+                    player.setMediaItems(mediaItems, targetIndex, session.positionMs)
+                    player.shuffleModeEnabled = session.shuffleEnabled
+                    player.repeatMode = session.repeatMode
+                    player.playWhenReady = false // Paused on restoration
+                    player.prepare()
+
+                    _uiState.update {
+                        it.copy(
+                            currentSong = currentSong,
+                            currentQueueIndex = targetIndex,
+                            currentPositionMs = session.positionMs,
+                            durationMs = currentSong.durationMs,
+                            shuffleMode = session.shuffleEnabled,
+                            repeatMode = session.repeatMode,
+                            queue = restoredQueue,
+                            isPlaying = false
+                        )
+                    }
                 }
             }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
     private fun Song.toMediaItem(): MediaItem {
-        val metadata = MediaMetadata.Builder()
+        // IMPORTANTE: Este método se llama en el hilo principal.
+        // NO hacer I/O bloqueante aquí (sin openInputStream, sin readBytes).
+        // Media3 carga la artwork de forma asíncrona usando solo el URI.
+        val metadataBuilder = MediaMetadata.Builder()
             .setTitle(title)
             .setArtist(artist)
             .setAlbumTitle(album)
-            .setArtworkUri(artworkUri?.let { Uri.parse(it) })
-            .build()
+            .setIsPlayable(true)
+            .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
+
+        if (!artworkUri.isNullOrEmpty()) {
+            try {
+                val parsed = Uri.parse(artworkUri)
+                metadataBuilder.setArtworkUri(parsed)
+                // No leer bytes aquí - es I/O bloqueante en el hilo principal
+            } catch (_: Exception) {
+            }
+        }
 
         val uri = if (localFilePath != null) {
             val file = File(localFilePath)
@@ -367,7 +387,7 @@ class PlayerManager private constructor(private val context: Context) {
         return MediaItem.Builder()
             .setMediaId(id)
             .setUri(uri)
-            .setMediaMetadata(metadata)
+            .setMediaMetadata(metadataBuilder.build())
             .build()
     }
 

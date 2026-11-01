@@ -3,6 +3,7 @@ package com.francisco.franmusic.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.francisco.franmusic.data.local.FilterPreferences
 import com.francisco.franmusic.data.local.ThemePreferences
 import com.francisco.franmusic.data.local.db.FranMusicDatabase
 import com.francisco.franmusic.data.repository.MusicRepositoryImpl
@@ -67,6 +68,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val playerManager = PlayerManager.getInstance(application)
     private val themePreferences = ThemePreferences(application)
+    private val filterPreferences = FilterPreferences(application)
     private val equalizerManager = EqualizerManager.getInstance()
 
     private val lyricsManager = LyricsManager(application) { songId, lyricsText, insight ->
@@ -75,6 +77,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val playbackState: StateFlow<PlaybackUiState> = playerManager.uiState
     val currentTheme: StateFlow<AppThemeStyle> = themePreferences.currentTheme
+    val minDurationSeconds: StateFlow<Int> = filterPreferences.minDurationSeconds
     val sleepTimerState: StateFlow<SleepTimerState> = playerManager.sleepTimerState
     val equalizerState: StateFlow<EqualizerUiState> = equalizerManager.uiState
     val lyricsState: StateFlow<LyricsUiState> = lyricsManager.uiState
@@ -122,13 +125,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val mostPlayedSongs: StateFlow<List<Song>> = repository.mostPlayedSongs
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    private var sessionRestored = false
+
     init {
+        // Escaneo inicial no bloqueante respetando el filtro de duración mínima
+        val initialMinMs = filterPreferences.minDurationSeconds.value * 1000L
+        viewModelScope.launch {
+            repository.refreshLocalSongs(initialMinMs)
+        }
+
+        // Restaurar sesión UNA SOLA VEZ cuando las canciones estén disponibles
         viewModelScope.launch {
             try {
-                repository.songs.collect { songList ->
-                    if (songList.isNotEmpty() && playbackState.value.currentSong == null) {
-                        playerManager.restoreSessionIfEnabled(songList)
-                    }
+                // Esperar a que haya canciones disponibles (máximo un intento)
+                val songList = repository.songs.first { it.isNotEmpty() }
+                if (!sessionRestored && playbackState.value.currentSong == null) {
+                    sessionRestored = true
+                    playerManager.restoreSessionIfEnabled(songList)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -196,7 +209,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun rescanLibrary() {
         viewModelScope.launch {
-            repository.refreshLocalSongs()
+            val minMs = filterPreferences.minDurationSeconds.value * 1000L
+            repository.refreshLocalSongs(minMs)
+        }
+    }
+
+    fun setMinDurationSeconds(seconds: Int) {
+        filterPreferences.setMinDurationSeconds(seconds)
+        viewModelScope.launch {
+            repository.refreshLocalSongs(seconds * 1000L)
         }
     }
 
@@ -288,23 +309,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         equalizerManager.setBassBoostStrength(strength)
     }
 
-    // Lyrics & AI
+    // Lyrics (100% Offline / Local)
     fun loadLyricsForSong(song: Song) {
         viewModelScope.launch {
             lyricsManager.loadLyrics(song)
         }
-    }
-
-    fun generateAiLyrics(song: Song) {
-        viewModelScope.launch {
-            lyricsManager.generateWithAi(song)
-        }
-    }
-
-    fun getGeminiApiKey(): String = lyricsManager.geminiApiKey
-
-    fun setGeminiApiKey(key: String) {
-        lyricsManager.geminiApiKey = key
     }
 
     // Search actions
@@ -395,6 +404,26 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val duplicates = repository.detectDuplicates()
             onComplete(duplicates)
+        }
+    }
+
+    fun deleteSong(song: Song, deletePhysicalFile: Boolean = true, onComplete: () -> Unit = {}) {
+        viewModelScope.launch {
+            if (playbackState.value.currentSong?.id == song.id) {
+                playerManager.skipNext()
+            }
+            if (deletePhysicalFile && song.filePath.isNotBlank()) {
+                try {
+                    val file = java.io.File(song.filePath)
+                    if (file.exists()) {
+                        file.delete()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            repository.deleteSongs(listOf(song.id))
+            onComplete()
         }
     }
 

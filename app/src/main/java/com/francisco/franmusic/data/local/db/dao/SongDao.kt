@@ -65,10 +65,13 @@ interface SongDao {
     @Query("DELETE FROM songs WHERE id IN (:ids)")
     suspend fun deleteSongsByIds(ids: List<String>)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Query("DELETE FROM songs WHERE durationMs < :minDurationMs")
+    suspend fun deleteSongsShorterThan(minDurationMs: Long)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertSongs(songs: List<SongEntity>)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertSong(song: SongEntity)
 
     @Update

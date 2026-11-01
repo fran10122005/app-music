@@ -38,12 +38,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.francisco.franmusic.domain.model.Song
-import com.francisco.franmusic.ui.theme.AccentGreen
-import com.francisco.franmusic.ui.theme.DarkSurfaceElevated
-import com.francisco.franmusic.ui.theme.PrimaryViolet
+import com.francisco.franmusic.ui.theme.LocalAppThemeStyle
 import com.francisco.franmusic.ui.theme.TextMuted
 import com.francisco.franmusic.ui.theme.TextPrimary
 import com.francisco.franmusic.ui.theme.TextSecondary
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.ui.graphics.Color
 
 @Composable
 fun SongListItem(
@@ -51,17 +51,19 @@ fun SongListItem(
     isPlaying: Boolean,
     isCurrentSong: Boolean,
     onClick: () -> Unit,
-    onDownloadClick: () -> Unit,
+    onDownloadClick: () -> Unit = {},
     onAddToPlaylistClick: () -> Unit,
+    onDeleteClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val theme = LocalAppThemeStyle.current
     var showMenu by remember { mutableStateOf(false) }
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(if (isCurrentSong) DarkSurfaceElevated else androidx.compose.ui.graphics.Color.Transparent)
+            .background(if (isCurrentSong) theme.surfaceElevated else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -71,7 +73,7 @@ fun SongListItem(
             modifier = Modifier
                 .size(50.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(DarkSurfaceElevated),
+                .background(theme.surfaceElevated),
             contentAlignment = Alignment.Center
         ) {
             if (!song.artworkUri.isNullOrEmpty()) {
@@ -85,7 +87,7 @@ fun SongListItem(
                 Icon(
                     imageVector = Icons.Rounded.MusicNote,
                     contentDescription = null,
-                    tint = if (isCurrentSong) PrimaryViolet else TextMuted,
+                    tint = if (isCurrentSong) theme.primary else TextMuted,
                     modifier = Modifier.size(26.dp)
                 )
             }
@@ -94,13 +96,13 @@ fun SongListItem(
                 Box(
                     modifier = Modifier
                         .matchParentSize()
-                        .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.45f)),
+                        .background(Color.Black.copy(alpha = 0.45f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.GraphicEq,
                         contentDescription = "Reproduciendo",
-                        tint = PrimaryViolet,
+                        tint = theme.primary,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -117,14 +119,14 @@ fun SongListItem(
                 text = song.title,
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = if (isCurrentSong) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isCurrentSong) PrimaryViolet else TextPrimary
+                    color = if (isCurrentSong) theme.primary else TextPrimary
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "${song.artist} • ${song.album}",
+                    text = if (song.album.isNotBlank() && song.album != "Álbum desconocido") "${song.artist} • ${song.album}" else song.artist,
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary,
                     maxLines = 1,
@@ -134,17 +136,6 @@ fun SongListItem(
         }
 
         Spacer(modifier = Modifier.width(8.dp))
-
-        // Status indicators
-        if (song.isDownloaded) {
-            Icon(
-                imageVector = Icons.Rounded.CheckCircle,
-                contentDescription = "Descargado offline",
-                tint = AccentGreen,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-        }
 
         Text(
             text = song.formattedDuration,
@@ -167,30 +158,30 @@ fun SongListItem(
             DropdownMenu(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false },
-                modifier = Modifier.background(DarkSurfaceElevated)
+                modifier = Modifier.background(theme.surfaceElevated)
             ) {
-                if (song.isOnline && !song.isDownloaded) {
-                    DropdownMenuItem(
-                        text = { Text("Descargar para escuchar offline", color = TextPrimary) },
-                        leadingIcon = {
-                            Icon(Icons.Rounded.Download, contentDescription = null, tint = PrimaryViolet)
-                        },
-                        onClick = {
-                            showMenu = false
-                            onDownloadClick()
-                        }
-                    )
-                }
                 DropdownMenuItem(
                     text = { Text("Añadir a playlist", color = TextPrimary) },
                     leadingIcon = {
-                        Icon(Icons.Rounded.PlaylistAdd, contentDescription = null, tint = PrimaryViolet)
+                        Icon(Icons.Rounded.PlaylistAdd, contentDescription = null, tint = theme.primary)
                     },
                     onClick = {
                         showMenu = false
                         onAddToPlaylistClick()
                     }
                 )
+                if (onDeleteClick != null) {
+                    DropdownMenuItem(
+                        text = { Text("Eliminar canción", color = Color(0xFFFF5252)) },
+                        leadingIcon = {
+                            Icon(Icons.Rounded.DeleteOutline, contentDescription = null, tint = Color(0xFFFF5252))
+                        },
+                        onClick = {
+                            showMenu = false
+                            onDeleteClick()
+                        }
+                    )
+                }
             }
         }
     }

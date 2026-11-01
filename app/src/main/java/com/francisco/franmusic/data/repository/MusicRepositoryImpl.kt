@@ -135,9 +135,12 @@ class MusicRepositoryImpl(
         list.map { it.toDomain() }
     }
 
-    override suspend fun refreshLocalSongs() = withContext(Dispatchers.IO) {
+    override suspend fun refreshLocalSongs(minDurationMs: Long) = withContext(Dispatchers.IO) {
         try {
-            val localSongs = localSource.getSongs()
+            if (minDurationMs > 0) {
+                songDao.deleteSongsShorterThan(minDurationMs)
+            }
+            val localSongs = localSource.getSongs(minDurationMs)
             if (localSongs.isNotEmpty()) {
                 val entities = localSongs.map { SongEntity.fromDomain(it) }
                 songDao.insertSongs(entities)
@@ -156,6 +159,8 @@ class MusicRepositoryImpl(
                 SearchFilter.ARTISTS -> domainList.filter { it.artist.contains(query, ignoreCase = true) }
                 SearchFilter.ALBUMS -> domainList.filter { it.album.contains(query, ignoreCase = true) }
                 SearchFilter.FOLDERS -> domainList.filter { it.folderName.contains(query, ignoreCase = true) }
+                SearchFilter.GENRES -> domainList.filter { it.genre?.contains(query, ignoreCase = true) == true }
+                SearchFilter.FAVORITES -> domainList.filter { it.isFavorite }
             }
         }
     }

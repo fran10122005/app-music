@@ -118,13 +118,15 @@ fun SearchScreen(
                 SearchFilter.TITLES to "Canciones",
                 SearchFilter.ARTISTS to "Artistas",
                 SearchFilter.ALBUMS to "Álbumes",
-                SearchFilter.FOLDERS to "Carpetas"
+                SearchFilter.FOLDERS to "Carpetas",
+                SearchFilter.GENRES to "Géneros",
+                SearchFilter.FAVORITES to "❤️ Favoritas"
             )
 
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(filters) { (filter, title) ->
+                items(filters, key = { it.first.name }) { (filter, title) ->
                     val isSelected = searchFilter == filter
                     FilterChip(
                         selected = isSelected,
@@ -214,7 +216,7 @@ fun SearchScreen(
                     )
                 }
 
-                items(searchResults) { song ->
+                items(searchResults, key = { it.id }) { song ->
                     val isCurrent = playbackState.currentSong?.id == song.id
                     SongListItem(
                         song = song,

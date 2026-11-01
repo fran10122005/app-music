@@ -1,8 +1,12 @@
 package com.francisco.franmusic.ui.screens
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import com.francisco.franmusic.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +22,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.FilterList
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CleaningServices
 import androidx.compose.material.icons.rounded.FindReplace
@@ -61,10 +67,10 @@ import com.francisco.franmusic.ui.theme.TextSecondary
 @Composable
 fun SettingsScreen(
     currentTheme: AppThemeStyle,
-    geminiApiKey: String,
     restoreSessionEnabled: Boolean = true,
+    minDurationSeconds: Int = 30,
     onThemeSelect: (AppThemeStyle) -> Unit,
-    onSaveApiKey: (String) -> Unit,
+    onMinDurationChange: (Int) -> Unit = {},
     onToggleRestoreSession: (Boolean) -> Unit = {},
     onOpenEqualizer: () -> Unit,
     onOpenSleepTimer: () -> Unit,
@@ -73,8 +79,6 @@ fun SettingsScreen(
     onDetectDuplicates: () -> Unit = {}
 ) {
     val theme = LocalAppThemeStyle.current
-    var apiKeyInput by remember(geminiApiKey) { mutableStateOf(geminiApiKey) }
-    var apiKeySavedFeedback by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier
@@ -310,10 +314,10 @@ fun SettingsScreen(
             }
         }
 
-        // AI Lyrics Configuration
+        // Filtro de Duración y Limpieza de Audios Cortos
         item {
             Text(
-                text = "INTELIGENCIA ARTIFICIAL PARA LETRAS",
+                text = "FILTRO DE MÚSICA & AUDIOS CORTOS",
                 style = MaterialTheme.typography.labelSmall,
                 color = theme.primaryLight,
                 fontWeight = FontWeight.Bold,
@@ -329,71 +333,58 @@ fun SettingsScreen(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = Icons.Rounded.AutoAwesome,
+                            imageVector = Icons.Rounded.FilterList,
                             contentDescription = null,
                             tint = theme.primary,
                             modifier = Modifier.size(22.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Clave API de Google Gemini (Opcional)",
+                            text = "Duración mínima de pista",
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
                         )
                     }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "FranMusic incluye un sintetizador offline inteligente por defecto. Si ingresas tu clave API gratuita de Gemini, las letras y análisis musicales se generarán con modelos LLM de última generación.",
+                        text = "Ignora automáticamente audios breves, tonos de notificación y notas de voz de WhatsApp para mantener una biblioteca 100% musical.",
                         style = MaterialTheme.typography.bodySmall,
                         color = TextSecondary,
                         lineHeight = 18.sp
                     )
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    OutlinedTextField(
-                        value = apiKeyInput,
-                        onValueChange = {
-                            apiKeyInput = it
-                            apiKeySavedFeedback = false
-                        },
-                        label = { Text("Gemini API Key") },
-                        placeholder = { Text("AIzaSy...") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = theme.primary,
-                            unfocusedBorderColor = theme.surfaceVariant,
-                            focusedTextColor = TextPrimary,
-                            unfocusedTextColor = TextPrimary
-                        )
+                    val durationOptions = listOf(
+                        0 to "Todo (0s)",
+                        30 to "30 seg (Recomendado)",
+                        60 to "60 seg"
                     )
-
-                    Spacer(modifier = Modifier.height(10.dp))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        if (apiKeySavedFeedback) {
-                            Text(
-                                text = "✓ Clave guardada correctamente",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = theme.primary
+                        durationOptions.forEach { (sec, label) ->
+                            val isSelected = minDurationSeconds == sec
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { onMinDurationChange(sec) },
+                                label = {
+                                    Text(
+                                        text = label,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    containerColor = theme.surfaceVariant.copy(alpha = 0.5f),
+                                    selectedContainerColor = theme.primary,
+                                    labelColor = TextSecondary,
+                                    selectedLabelColor = theme.background
+                                ),
+                                border = null,
+                                shape = RoundedCornerShape(12.dp)
                             )
-                        } else {
-                            Spacer(modifier = Modifier.width(1.dp))
-                        }
-
-                        Button(
-                            onClick = {
-                                onSaveApiKey(apiKeyInput.trim())
-                                apiKeySavedFeedback = true
-                            },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = theme.primary)
-                        ) {
-                            Text("Guardar Clave", color = theme.background, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -466,7 +457,7 @@ fun SettingsScreen(
                             color = TextPrimary
                         )
                         Text(
-                            text = "Detecta y elimina repetidos",
+                            text = "Ver y gestionar repetidos",
                             style = MaterialTheme.typography.labelSmall,
                             color = TextMuted
                         )
@@ -522,21 +513,29 @@ fun SettingsScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
+                        .padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    Image(
+                        painter = painterResource(id = R.drawable.franmusic_logo),
+                        contentDescription = "FranMusic Logo",
+                        modifier = Modifier
+                            .size(130.dp)
+                            .padding(bottom = 8.dp),
+                        contentScale = ContentScale.Fit
+                    )
                     Text(
                         text = "FranMusic",
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
                         color = theme.primaryLight
                     )
                     Text(
-                        text = "Versión 1.0 (Edición 100% Local)",
+                        text = "Versión 1.0",
                         style = MaterialTheme.typography.labelSmall,
                         color = TextMuted
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
                     Text(
                         text = "Diseñado para máxima fidelidad, elegancia y control total de tu biblioteca de audio.",
                         style = MaterialTheme.typography.bodySmall,

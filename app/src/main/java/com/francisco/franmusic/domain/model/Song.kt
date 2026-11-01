@@ -31,4 +31,7 @@ data class Song(
             val seconds = totalSeconds % 60
             return "%d:%02d".format(minutes, seconds)
         }
+
+    val filePath: String
+        get() = localFilePath ?: ""
 }

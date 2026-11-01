@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Conexión a red opcional: usada exclusivamente para consulta de letras abiertas (LRCLIB) y generación con IA (Google Gemini) -->
+    <!-- Conexión a red opcional: consulta de letras abiertas (LRCLIB) -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 

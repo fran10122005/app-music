@@ -1,6 +1,6 @@
 # FranMusic 🎵
 
-> **Reproductor de música local de alta fidelidad para Android** desarrollado con **Kotlin moderno**, **Jetpack Compose**, **Material 3**, **Media3 ExoPlayer / MediaSession**, persistencia reactiva con **Room + KSP**, ecualizador nativo y generación inteligente de letras con **Inteligencia Artificial (Google Gemini)**.
+> **Reproductor de música local de alta fidelidad para Android** desarrollado con **Kotlin moderno**, **Jetpack Compose**, **Material 3**, **Media3 ExoPlayer / MediaSession**, persistencia reactiva con **Room + KSP**, ecualizador nativo, filtros avanzados de exclusión (WhatsApp / audios cortos) y sincronización instantánea de letras offline (.lrc).
 
 ---
 
@@ -48,13 +48,12 @@ Este documento sirve como **fuente única de verdad (Ground Truth)** del proyect
 - Interruptor y deslizador de intensidad de **Refuerzo de Graves (Bass Boost)** (0 a 100%).
 - Hoja modal interactiva `EqualizerSheet.kt`.
 
-### 5. ✨ Visor de Letras Inteligente con IA y LRC (Plus #5)
-- `LyricsManager.kt` con arquitectura híbrida en 3 niveles:
-  1. **Local (.lrc / .txt)**: Detección y lectura inmediata de archivos de letras complementarios en la misma carpeta del audio.
-  2. **Búsqueda Abierta**: Consulta REST en segundo plano a la API abierta de LRCLIB.
-  3. **Generación con IA (Google Gemini)**: Botón con icono ✨ que consulta el modelo de lenguaje para estructurar la letra estrofa por estrofa, generar traducción si está en otro idioma e incluir un análisis o resumen temático (*AI Insight*).
-  4. **Persistencia en Room**: Toda letra obtenida o generada se guarda en `SongEntity.lyrics` para acceso offline instantáneo y permanente.
-- `LyricsSheet.kt`: Visor deslizante con auto-scroll sincronizado al compás de la reproducción y resaltado de la estrofa actual. Tocar cualquier línea sincronizada adelanta o retrasa la canción a ese segundo exacto.
+### 5. 📜 Visor de Letras Offline y Sincronizadas (.LRC) (Plus #5)
+- `LyricsManager.kt` 100% enfocado en reproducción y lectura offline:
+  1. **Local (.lrc / .txt)**: Detección y lectura inmediata en la misma carpeta física del archivo de audio (< 1ms).
+  2. **Persistencia en Room**: Toda letra se guarda en `SongEntity.lyrics` para acceso instantáneo y permanente sin requerir red.
+  3. **Fallback LRCLIB**: Consulta abierta opcional sin bloqueos de interfaz.
+- `LyricsSheet.kt`: Visor interactivo tipo karaoke con auto-scroll sincronizado al compás de la reproducción y resaltado de la línea activa. Tocar cualquier estrofa adelanta o atrasa la canción a ese segundo exacto.
 
 ### 6. 🎨 Motor de Estilos Visuales Dinámicos (5 Temas)
 - Selector de temas en tiempo real mediante `AppThemeStyle.kt` y persistido en `ThemePreferences.kt`:
@@ -118,7 +117,7 @@ app/src/main/java/com/francisco/franmusic/
 │   ├── PlayerManager.kt                 # Singleton mediador de MediaController, cola y estado
 │   ├── EqualizerManager.kt              # Conexión con Equalizer y BassBoost nativos de Android
 │   ├── SleepTimerManager.kt             # Gestor del temporizador de apagado y cuenta regresiva
-│   ├── LyricsManager.kt                 # Motor de letras (.lrc, LRCLIB y Gemini AI)
+│   ├── LyricsManager.kt                 # Motor de letras offline (.lrc y LRCLIB)
 │   ├── PlaybackUiState.kt               # Estado reactivo del reproductor
 │   └── PlaybackStateStore.kt            # Persistencia de sesión con DataStore Preferences
 ├── service/
@@ -132,15 +131,16 @@ app/src/main/java/com/francisco/franmusic/
     ├── components/
     │   ├── MiniPlayer.kt                # Mini reproductor flotante con tema dinámico
     │   ├── NowPlayingSheet.kt           # Gran reproductor con onda sonora animada, acciones y carátula
-    │   ├── LyricsSheet.kt               # Visor de letras sincronizadas con IA y tarjetas de análisis
+    │   ├── LyricsSheet.kt               # Visor de letras sincronizadas offline (.lrc)
     │   ├── EqualizerSheet.kt            # Panel de ecualización y refuerzo de graves
     │   ├── SleepTimerDialog.kt          # Selector y cuenta regresiva del temporizador de apagado
+    │   ├── DuplicatesSheet.kt           # Gestor interactivo de canciones duplicadas
     │   └── SongListItem.kt              # Elemento de lista con carátula y acciones rápidas
     └── screens/
         ├── HomeScreen.kt                # Resumen de inicio con accesos rápidos y estado
-        ├── LibraryScreen.kt             # Pestañas: Canciones, Carpetas, Álbumes, Artistas, Playlists
-        ├── SearchScreen.kt              # Búsqueda local instantánea con filtros
-        ├── SettingsScreen.kt            # Selector de temas, ajustes de IA, escaneo y utilidades
+        ├── LibraryScreen.kt             # Pestañas: Canciones (con ordenamiento), Carpetas, Álbumes, Artistas, Playlists
+        ├── SearchScreen.kt              # Búsqueda local instantánea con filtros (Favoritas, Géneros, etc.)
+        ├── SettingsScreen.kt            # Selector de temas, filtro de duración, escaneo y utilidades
         └── DetailDialogs.kt             # Hojas de detalle para Carpeta, Álbum, Artista y Playlist
 ```
 

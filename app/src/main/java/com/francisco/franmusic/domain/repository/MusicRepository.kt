@@ -15,7 +15,9 @@ enum class SearchFilter {
     TITLES,
     ARTISTS,
     ALBUMS,
-    FOLDERS
+    FOLDERS,
+    GENRES,
+    FAVORITES
 }
 
 interface MusicRepository {
@@ -30,7 +32,7 @@ interface MusicRepository {
     val favoriteSongs: Flow<List<Song>>
     val mostPlayedSongs: Flow<List<Song>>
 
-    suspend fun refreshLocalSongs()
+    suspend fun refreshLocalSongs(minDurationMs: Long = 30000L)
     fun searchSongs(query: String, filter: SearchFilter = SearchFilter.ALL): Flow<List<Song>>
     fun getSongsByAlbum(albumTitle: String): Flow<List<Song>>
     fun getSongsByArtist(artistName: String): Flow<List<Song>>

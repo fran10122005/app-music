@@ -20,7 +20,9 @@ class LocalMediaSource(
     override val sourceId: String = "local"
     override val displayName: String = "Dispositivo"
 
-    override suspend fun getSongs(): List<Song> = withContext(Dispatchers.IO) {
+    override suspend fun getSongs(): List<Song> = getSongs(30000L)
+
+    suspend fun getSongs(minDurationMs: Long = 30000L): List<Song> = withContext(Dispatchers.IO) {
         val songList = mutableListOf<Song>()
         val collection: Uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
@@ -46,7 +48,7 @@ class LocalMediaSource(
         }
         val projection = projectionList.toTypedArray()
 
-        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} > 10000"
+        val selection = "${MediaStore.Audio.Media.IS_MUSIC} != 0 AND ${MediaStore.Audio.Media.DURATION} >= $minDurationMs"
         val sortOrder = "${MediaStore.Audio.Media.TITLE} ASC"
 
         try {
@@ -73,6 +75,12 @@ class LocalMediaSource(
                 } else -1
 
                 while (cursor.moveToNext()) {
+                    val dataPath = if (dataColumn >= 0) cursor.getString(dataColumn) else null
+                    // Filtrar audios de mensajería (WhatsApp, Telegram, etc.) y grabadoras
+                    if (isExcludedPath(dataPath)) {
+                        continue
+                    }
+
                     val id = cursor.getLong(idColumn)
                     val title = cursor.getString(titleColumn) ?: "Desconocido"
                     val artist = cursor.getString(artistColumn) ?: "Artista desconocido"
@@ -81,7 +89,6 @@ class LocalMediaSource(
                     val track = cursor.getInt(trackColumn)
                     val albumId = cursor.getLong(albumIdColumn)
                     val mimeType = cursor.getString(mimeTypeColumn) ?: "audio/mpeg"
-                    val dataPath = if (dataColumn >= 0) cursor.getString(dataColumn) else null
 
                     val rawYear = if (yearColumn >= 0 && !cursor.isNull(yearColumn)) cursor.getInt(yearColumn) else null
                     val year = if (rawYear != null && rawYear > 0) rawYear else null
@@ -170,6 +177,11 @@ class LocalMediaSource(
                     val dataCol = cursor.getColumnIndex(MediaStore.Audio.Media.DATA)
 
                     while (cursor.moveToNext()) {
+                        val dataPath = if (dataCol >= 0) cursor.getString(dataCol) else null
+                        if (isExcludedPath(dataPath)) {
+                            continue
+                        }
+
                         val id = cursor.getLong(idCol)
                         val title = cursor.getString(titleCol) ?: "Desconocido"
                         val artist = cursor.getString(artistCol) ?: "Artista desconocido"
@@ -178,7 +190,6 @@ class LocalMediaSource(
                         val trackNumber = cursor.getInt(trackCol)
                         val albumId = cursor.getLong(albumIdCol)
                         val mimeType = cursor.getString(mimeCol) ?: "audio/mpeg"
-                        val dataPath = if (dataCol >= 0) cursor.getString(dataCol) else null
 
                         val contentUri = ContentUris.withAppendedId(
                             MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,
@@ -231,6 +242,28 @@ class LocalMediaSource(
         }
 
         songList
+    }
+
+    companion object {
+        private val EXCLUDED_PATH_KEYWORDS = listOf(
+            "whatsapp",
+            "telegram",
+            "voice notes",
+            "voicenotes",
+            "notifications",
+            "ringtones",
+            "alarms",
+            "call_recorder",
+            "callrecorder",
+            "sound_recorder",
+            "soundrecorder"
+        )
+
+        fun isExcludedPath(path: String?): Boolean {
+            if (path.isNullOrBlank()) return false
+            val lower = path.lowercase()
+            return EXCLUDED_PATH_KEYWORDS.any { lower.contains(it) }
+        }
     }
 
     override suspend fun getAlbums(): List<Album> = withContext(Dispatchers.IO) {

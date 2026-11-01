@@ -56,6 +56,28 @@ class PlaybackService : MediaSessionService() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        // Canal de notificación con máxima visibilidad en pantalla de bloqueo
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val channel = android.app.NotificationChannel(
+                "franmusic_playback_channel",
+                "Reproducción FranMusic",
+                android.app.NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Controles de reproducción multimedia en pantalla de bloqueo y barra de notificaciones"
+                setShowBadge(false)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+            }
+            val nm = getSystemService(android.app.NotificationManager::class.java)
+            nm?.createNotificationChannel(channel)
+        }
+
+        setMediaNotificationProvider(
+            androidx.media3.session.DefaultMediaNotificationProvider.Builder(this)
+                .setChannelId("franmusic_playback_channel")
+                .setChannelName(com.francisco.franmusic.R.string.app_name)
+                .build()
+        )
+
         mediaSession = MediaSession.Builder(this, player)
             .setSessionActivity(sessionActivityPendingIntent)
             .setCallback(CustomMediaSessionCallback())

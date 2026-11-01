@@ -37,9 +37,12 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.PlaylistPlay
 import androidx.compose.material.icons.rounded.TrendingUp
+import androidx.compose.material.icons.rounded.SwapVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -88,6 +91,15 @@ import com.francisco.franmusic.ui.theme.TextPrimary
 import com.francisco.franmusic.ui.theme.TextSecondary
 import com.francisco.franmusic.ui.viewmodel.LibraryTab
 
+enum class SongSortOrder(val displayName: String) {
+    TITLE_ASC("Título (A - Z)"),
+    TITLE_DESC("Título (Z - A)"),
+    ARTIST_ASC("Artista (A - Z)"),
+    DURATION_DESC("Duración (Mayor a menor)"),
+    DURATION_ASC("Duración (Menor a mayor)"),
+    RECENT("Añadida recientemente")
+}
+
 @Composable
 fun LibraryScreen(
     currentTab: LibraryTab,
@@ -120,6 +132,19 @@ fun LibraryScreen(
 ) {
     val theme = LocalAppThemeStyle.current
     var showCreatePlaylistDialog by remember { mutableStateOf(false) }
+    var songSortOrder by remember { mutableStateOf(SongSortOrder.TITLE_ASC) }
+    var showSortMenu by remember { mutableStateOf(false) }
+
+    val sortedSongs = remember(songs, songSortOrder) {
+        when (songSortOrder) {
+            SongSortOrder.TITLE_ASC -> songs.sortedBy { it.title.lowercase() }
+            SongSortOrder.TITLE_DESC -> songs.sortedByDescending { it.title.lowercase() }
+            SongSortOrder.ARTIST_ASC -> songs.sortedBy { it.artist.lowercase() }
+            SongSortOrder.DURATION_DESC -> songs.sortedByDescending { it.durationMs }
+            SongSortOrder.DURATION_ASC -> songs.sortedBy { it.durationMs }
+            SongSortOrder.RECENT -> songs.sortedByDescending { it.id }
+        }
+    }
 
     Column(
         modifier = modifier
@@ -210,14 +235,67 @@ fun LibraryScreen(
                     contentPadding = PaddingValues(bottom = 120.dp)
                 ) {
                     item {
-                        Text(
-                            text = "${songs.size} canciones en total",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted,
-                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "${sortedSongs.size} canciones",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextMuted
+                            )
+
+                            Box {
+                                Row(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable { showSortMenu = true }
+                                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.SwapVert,
+                                        contentDescription = "Ordenar",
+                                        tint = theme.primaryLight,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = songSortOrder.displayName,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = theme.primaryLight,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+
+                                DropdownMenu(
+                                    expanded = showSortMenu,
+                                    onDismissRequest = { showSortMenu = false },
+                                    modifier = Modifier.background(theme.surfaceElevated)
+                                ) {
+                                    SongSortOrder.values().forEach { order ->
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    text = order.displayName,
+                                                    color = if (songSortOrder == order) theme.primary else TextPrimary,
+                                                    fontWeight = if (songSortOrder == order) FontWeight.Bold else FontWeight.Normal
+                                                )
+                                            },
+                                            onClick = {
+                                                songSortOrder = order
+                                                showSortMenu = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
-                    items(songs) { song ->
+                    items(sortedSongs, key = { it.id }) { song ->
                         SongListItem(
                             song = song,
                             isPlaying = playbackState.isPlaying,
@@ -273,7 +351,7 @@ fun LibraryScreen(
                             )
                         }
 
-                        items(folders) { folder ->
+                        items(folders, key = { it.path }) { folder ->
                             FolderRowItem(
                                 folder = folder,
                                 onClick = { onFolderClick(folder) },
@@ -292,7 +370,7 @@ fun LibraryScreen(
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    items(albums) { album ->
+                    items(albums, key = { it.id }) { album ->
                         AlbumCard(album = album, onClick = { onAlbumClick(album) })
                     }
                 }
@@ -303,7 +381,7 @@ fun LibraryScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 120.dp, top = 8.dp)
                 ) {
-                    items(artists) { artist ->
+                    items(artists, key = { it.id }) { artist ->
                         ArtistRowItem(artist = artist, onClick = { onArtistClick(artist) })
                     }
                 }
@@ -340,7 +418,7 @@ fun LibraryScreen(
                         horizontalArrangement = Arrangement.spacedBy(14.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        items(genres) { genre ->
+                        items(genres, key = { it.name }) { genre ->
                             GenreCard(genre = genre, onClick = { onGenreClick(genre) })
                         }
                     }
@@ -375,7 +453,7 @@ fun LibraryScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 120.dp, top = 8.dp)
                     ) {
-                        items(yearGroups) { yearGroup ->
+                        items(yearGroups, key = { it.year ?: 0 }) { yearGroup ->
                             YearGroupRowItem(yearGroup = yearGroup, onClick = { onYearGroupClick(yearGroup) })
                         }
                     }
@@ -410,7 +488,7 @@ fun LibraryScreen(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = 120.dp, top = 8.dp)
                     ) {
-                        items(composers) { composer ->
+                        items(composers, key = { it.name }) { composer ->
                             ComposerRowItem(composer = composer, onClick = { onComposerClick(composer) })
                         }
                     }
@@ -475,7 +553,7 @@ fun LibraryScreen(
                                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)
                             )
                         }
-                        items(playlists) { playlist ->
+                        items(playlists, key = { it.id }) { playlist ->
                             PlaylistRowItem(playlist = playlist, onClick = { onPlaylistClick(playlist) })
                         }
                     } else {
